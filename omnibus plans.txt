@@ -1,0 +1,541 @@
+gpt 5.6 luna:
+
+No layer. The current implementation does not do that. It has generic task and project records, but, according to the Arena report, it has no Books-folder indexer, reading-progress integration, reading statistics, or visualization that could produce the result you described.
+
+I made the wrong thing the acceptance criterion. I treated “a model can execute a task” as the first milestone when I should have insisted on “Omnibus performs a useful task from your actual life, end to end.”
+
+And Codex SDK should not be a required dependency. Your free Codex allowance is a development resource you want to conserve, not a sustainable inference backend. OpenAI's own documentation confirms that Codex allowances vary by plan and task.
+
+![](https://www.google.com/s2/favicons?domain=https://help.openai.com\&sz=32)
+
+OpenAI Help Center
+
+## What Omnibus needs instead
+
+It needs a general runtime plus actual capabilities. The runtime provides shared infrastructure; capabilities implement useful things the system can do. A model can help operate those capabilities, but it cannot substitute for their implementation.
+
+Take your Books example. This is what the system needs to contain:
+
+Books folder connector
+
+Scan configured folders on your machines; identify files, formats, duplicates, and metadata without modifying originals.
+
+Library and reading-progress service
+
+Track books, current positions, completed sections, reading sessions, and total progress.
+
+Reading dashboard
+
+Daily progress, percentage complete, reading history, and a visual graph.
+
+This capability should work locally, without an LLM, an API key, or a paid service. Calculating progress and drawing a graph do not require a frontier model.
+
+There is one genuine data-source issue: scanning the Books folder cannot tell Omnibus how much you have read. It needs to import reading positions from whichever reader you use, or accept a quick progress update from you until that integration exists. PDF page counts are straightforward; reflowable EPUBs may require tracking reading position or percentage instead of assuming a stable page count.
+
+With a working progress source, the system could genuinely tell you:
+
+> Today: 10 more pages of Milewski. Overall progress: 20%. Here's your reading graph.
+
+No model call required for that update.
+
+## The architecture follows from this
+
+The generic runtime should provide task intake, persistent state, capability discovery, permissions, scheduling, and a common interface for results. Individual capabilities provide the actual domain functionality: Books, music listening, research, cooking, image analysis, and so forth.
+
+A model is an optional worker behind that architecture. Under your zero-spending constraint, the system should prefer deterministic local operations and use local models or available free model access when reasoning is necessary. It must not depend on a paid API or on your exhausted Codex allowance to do routine work.
+
+That does not mean implementing every capability before having a useful product. It means the first milestone must test the general architecture through a real capability, not through a contrived model smoke test.
+
+## The next Arena task
+
+I'd direct Arena to make the existing application into a working local library and reading tracker first, while preserving the generic runtime it has already built.
+
+Omnibus V0.2 — Implement the Books capability end to end
+
+# Omnibus V0.2 — Implement the Books capability end to end
+
+Continue from the existing repository. Inspect the actual code before modifying it. Do not rewrite working infrastructure.
+
+**Goal:** Omnibus must scan a user-configured Books directory, maintain a persistent library, track reading progress, and display a useful visual dashboard. This must work without any LLM or paid API.
+
+1. Implement a read-only library scanner for supported ebook/document formats. Extract available title, author, format, page or chapter information, and file identity. Handle malformed files and duplicates gracefully. Never alter or move the original books.
+
+2. Implement a persistent reading-progress model. Support progress updates through the application's UI and CLI, with dated events and a calculated current position. Preserve history so changes can be corrected without destroying earlier records.
+
+3. Implement a clean library dashboard with book-level completion, daily progress, recent activity, and a graph of reading over time. Store and calculate the underlying data deterministically. Clearly distinguish actual reading events from imported positions or estimates.
+
+4. Define an adapter interface for reading applications that expose current positions or reading history. Do not invent a working integration with a reader that has not been identified and tested. Until one is connected, provide a convenient manual-update path.
+
+5. Test with a temporary directory containing representative files. Verify library discovery, metadata extraction, persistence across restarts, duplicate handling, progress calculations, graph data, malformed-file behavior, and the absence of modifications to source files.
+
+6. Make directory configuration portable across Linux, Windows, and macOS. Do not hard-code a machine-specific path, require WSL, or synchronize SQLite database files between machines using file-sync software.
+
+7. Run the application and its tests. Report the actual working features, unsupported formats, reader integrations still missing, and exact startup instructions.
+
+Keep model-provider integration optional. Do not add the Codex SDK as a required dependency. Do not start another architectural redesign or implement a multi-agent swarm in this milestone.
+
+Once that works, the next capability can exercise the same runtime with a very different task: for example, maintaining your Aquarium listening queue and the Severov reading project. That will test whether the common infrastructure is really reusable, rather than merely demonstrating that the first application works.
+
+The standard should be concrete: every milestone gives you a new thing Omnibus can fuckingly do, while the shared runtime grows only when a real capability needs it.
+
+-->>
+
+This thing (the way I imagine it, anyway) should work somewhat similarly to my Machine: form an idea hypergraph. When I read Milewski, the system should say "Cool, you've read the first half of the book; you can also watch the youtube lectures but you don't have too, they basically say the same thing"; or, when I read GEB, it should say "It would probably be great for you to fuckingly listen to the crab cannon now, here's a youtube link for you", or, when I watch an interview with Fridman, have the system say "did you like it? there's a fresher interview with the same dude by Patel, here's your link".
+
+The point being that the system doesn't just track my progress, it deduplicates effort and optimises my evolution (a bit, not overly)
+
+-->>
+
+Right. Then the idea graph isn't merely a memory component of Omnibus. It's the evolving model of your intellectual world that the system uses to decide what might be valuable to you next.
+
+That changes the design considerably. A library tracker is one data source. A task DAG is a way to organize execution. Neither is the central abstraction.
+
+The central abstraction is a personal idea hypergraph, continuously updated from what you encounter, what you think about it, and what you want to explore.
+
+## 1. What the graph represents
+
+I'd distinguish five kinds of objects:
+
+Ideas
+
+Concepts, claims, questions, theories, arguments, examples, and connections between them.
+
+Resources
+
+Books, chapters, videos, interviews, podcasts, articles, music, people, and particular passages or timestamps.
+
+Encounters
+
+What you've read, watched, listened to, asked about, revisited, enjoyed, or abandoned.
+
+Your evolving interests
+
+Topics you're curious about, concepts you already know, preferred presentation styles, current questions, and explicit goals.
+
+Evidence and provenance
+
+Where an idea came from, which passage supports a connection, how confident the system is, and whether you confirmed an inference.
+
+These are connected through typed hyperedges. A hyperedge can relate several ideas to several resources, rather than forcing everything into isolated pairs.
+
+For example, the graph might represent that a particular chapter of Milewski introduces a set of concepts, that a YouTube lecture covers substantially the same set, that one of the lecture's worked examples adds something new, and that you have already read the corresponding chapter.
+
+That is a much more informative structure than either a collection of bookmarks or a flat list of reading progress.
+
+## 2. The system should optimize marginal value, not consumption
+
+Your examples reveal three distinct operations the graph needs to support.
+
+### Avoid spending your attention twice
+
+You're halfway through Milewski's book. The system knows that several lectures cover the same material.
+
+It should be able to say:
+
+> You've covered roughly half the book. These lectures substantially overlap with what you've read, so you can skip them without losing much. This other lecture has a useful worked example that the book treats briefly.
+
+That requires more than matching titles. The system needs a map of which ideas each resource covers and where the coverage overlaps.
+
+### Find useful connections at the right moment
+
+You're reading Gödel, Escher, Bach.
+
+> You're at the Crab Canon. This is a good time to listen to the corresponding musical piece. Here's a recording.
+
+The recommendation is valuable not just because the music is related to the book, but because the relationship becomes useful at your current point in the book.
+
+A static recommendation list cannot capture this as well as a graph combined with your current activity.
+
+### Keep an interest alive without making it an obligation
+
+You watch a Lex Fridman interview and indicate that you enjoyed it. The graph records the guest, topics, ideas, format, and your reaction.
+
+Later, it finds a newer interview with the same person by another host.
+
+> You liked the Fridman interview with this person. Patel has a newer conversation with them. It overlaps on these topics but covers these other subjects that weren't discussed in the first one.
+
+The system doesn't need to know that every new interview is worth watching. It needs enough information to explain why this particular one might be.
+
+## 3. How recommendations should work
+
+I'd make every recommendation a comparison between what you already know or have encountered and what a candidate resource would add.
+
+A candidate can have several kinds of value:
+
+| Value         | Question                                                                            |
+| ------------- | ----------------------------------------------------------------------------------- |
+| Novelty       | Does it introduce ideas or evidence you haven't encountered?                        |
+| Connection    | Does it link two interests or bodies of knowledge that you currently keep separate? |
+| Reinforcement | Does another medium help clarify something difficult?                               |
+| Enjoyment     | Is it likely to appeal to your tastes?                                              |
+| Timing        | Is it especially relevant to what you're reading, watching, or working on now?      |
+| Cost          | How much time and effort would it require?                                          |
+| Redundancy    | How much would it repeat material you already know?                                 |
+
+These are not a universal scoring formula for human development. Their weights should depend on the situation and what you fuckingly respond to.
+
+Sometimes you'll want something entirely new. Sometimes you'll want to deepen an existing interest. Sometimes you'll want the most enjoyable next book, regardless of whether it contributes much to any intellectual project.
+
+The system should not silently decide that learning more is always better than having fun.
+
+And since you said “a bit, not overly,” it should have a recommendation budget: offer a particularly relevant suggestion when there's a good opportunity, avoid repeating suggestions you've ignored, and let you dismiss, defer, or accept them without turning every leisure activity into homework.
+
+## 4. What this means for Omnibus's architecture
+
+I would now organize the project around four cooperating subsystems.
+
+Idea hypergraph
+
+The canonical semantic model: what exists, how ideas relate, what sources say, and what you have encountered.
+
+Ingestion
+
+Read files, import metadata and transcripts, process materials, and record your activity.
+
+Inference
+
+Identify overlaps, new ideas, prerequisites, connections, and candidate recommendations.
+
+Personal interface
+
+Answer questions about your intellectual world and offer useful next steps with reasons and links.
+
+The task DAG sits alongside this as an execution mechanism. When a project requires work, the runtime can produce a plan. The DAG is not the canonical representation of your life, interests, or knowledge.
+
+The Epistemic Compiler remains a specialized research workflow that can contribute its outputs to the graph. The Machine remains a distinct project with its own architecture. Omnibus is the personal system connecting these capabilities.
+
+One implementation detail matters: the graph should preserve the distinction between what a source says, what the system infers, and what you believe. If a model claims that two lectures are equivalent, that's a hypothesis backed by evidence, not an established fact merely because the graph contains an edge.
+
+## 5. What I'd build first
+
+I would still start with books and media, but for a different reason than I suggested earlier. They're a good first domain in which to prove that the graph has practical value.
+
+The first vertical slice should let you:
+
+1. Import a small selection of books and videos, including their accessible text, metadata, or transcripts.
+
+2. Extract ideas and map which portions of each resource cover them, retaining provenance.
+
+3. Record your progress and reactions.
+
+4. Compare two resources for overlap and additional material.
+
+5. Produce a useful, context-sensitive next recommendation, with a link and an explanation.
+
+6. Display the relevant part of the idea graph so you can inspect why it recommended something.
+
+It should work without a paid API. Deterministic local processing handles metadata, progress, graph queries, and basic overlap calculations; any model-dependent extraction or reasoning should use a replaceable backend that respects your available free access.
+
+The first test isn't whether the graph visualization looks impressive. It's whether, after you provide a small amount of real material and progress data, Omnibus can make one recommendation that saves you time or connects two things in a way you appreciate.
+
+Then expand to other domains. The same graph can connect an interview to a book, a book to a piece of music, a mathematical idea to a programming problem, or a building you photographed to an architectural movement.
+
+That's the design target: not a tracker that reports what you've done, but a system that uses an evolving model of your intellectual world to help you decide what is worth doing next.
+
+-->>
+
+# Omnibus: Idea Hypergraph and Personal Intellectual Assistant — Arena Build Spec
+
+**Target:** extend the existing Omnibus repository in place.  
+**Milestone:** V0.2 — an end-to-end, graph-informed personal knowledge capability.  
+**Primary user:** one person, with multiple computers and a hard budget of zero monetary spend.  
+**Operating principle:** use available deterministic tools first; use a model only where semantic judgment is required and only through an explicitly configured, genuinely available backend.
+
+## 0. The product being built
+
+Omnibus is intended to become a general-purpose personal assistant. Its central persistent representation should be an **inspectable idea hypergraph** that connects resources, ideas, people, topics, experiences, preferences, goals, and evidence. It should use this representation to help the user decide what is worth doing next, avoid redundant effort, and notice useful connections at the right moment.
+
+This is not merely a reading tracker, bookmark manager, chat-history search, or task DAG. Those may be capabilities or internal mechanisms. The graph is the shared semantic model; the runtime is responsible for executing tasks; domain capabilities provide concrete functionality.
+
+Illustrative desired interactions:
+
+- The user reads the first half of a book by Milewski. Omnibus records the progress and can say that several supplied or discovered lectures overlap with material already covered, while identifying any lecture that adds something substantive.
+- The user reads *Gödel, Escher, Bach* near the Crab Canon. Omnibus can recommend a suitable recording of the corresponding musical piece, with an explanation of the connection and a usable link.
+- The user watches an interview with a guest and says they liked it. Later Omnibus can suggest a newer interview with the same person, explain how its topics overlap or differ, and link to it.
+- The user can inspect the graph and provenance, correct a bad connection, reject a recommendation, or state that two resources were not actually redundant.
+
+The system should optimize the user's **marginal value from their attention**, balancing novelty, useful reinforcement, cross-domain connections, interest, timing, effort, and redundancy. It must not turn leisure into compulsory self-improvement. Recommendations should be sparse, optional, explainable, and easy to dismiss.
+
+## 1. Hard constraints
+
+1. **Build on the existing Omnibus codebase.** First inspect the current repository, README, `docs/status.md`, database schema/migrations, UI, CLI, worker interface, and tests. Reuse working code. Do not begin with a rewrite or a new repository.
+2. **Cross-platform.** Support ordinary native execution on Linux, macOS, and Windows. Do not require WSL, Docker, a particular computer, a cloud database, or an API key for the deterministic core.
+3. **Zero-cost baseline.** Library scanning, progress tracking, graph storage/queries, the dashboard, and basic recommendations from known graph relationships must work without any LLM or paid API. Do not make the Codex SDK a required dependency. Do not assume access to a model because it is available inside Arena or ChatGPT's web UI.
+4. **Model backends are optional and explicit.** Semantic extraction and nuanced comparison may use an adapter only when the user has configured an accessible provider/CLI/local model. No hidden mock fallback, browser-session scraping, undocumented endpoint exploit, or misleading “AI-powered” status. If no semantic backend is configured, clearly expose what is unavailable and keep deterministic/manual workflows functional.
+5. **Respect provenance.** Distinguish observed metadata, source text, user assertions/reactions, deterministic calculations, model-generated hypotheses, and user-confirmed relationships. Every inferred relationship needs provenance and a confidence/status. Do not present a title-based guess as content-verified equivalence.
+6. **Read-only ingestion.** Never modify, move, or delete original books or media files. Handle symlinks and paths conservatively. No destructive operation or outbound action without explicit permission.
+7. **Preserve the existing general runtime.** Do not replace the current task/project/run/artifact/event model. Do not make a DAG the representation for every question or make the Machine or Epistemic Compiler a required dependency.
+8. **Implement, then test.** No design-only deliverable. Make working changes, run tests, start the application, exercise the main flow, and report actual evidence and limitations.
+
+## 2. Scope for this milestone
+
+Implement one complete end-to-end capability called **Intellectual Life**. Its first vertical slice covers:
+
+- local resource discovery/import for books and text-like media;
+- persistent reading/activity progress;
+- the idea hypergraph data model and inspection UI;
+- recording user reactions and corrections;
+- overlap and context-sensitive recommendations based on known, evidenced graph relationships;
+- an optional, replaceable semantic-enrichment adapter for models that are genuinely available at zero additional monetary cost.
+
+The storage and interfaces should allow future resources such as videos, lectures, podcasts, music recordings, interviews, articles, people, places, projects, and physical-world observations without redesigning the schema. Do not attempt to implement every future connector now.
+
+Do not add parallel multi-agent orchestration, autonomous purchasing/messages, a scheduler, a new vector database, autonomous self-modification, or a new planner in this milestone.
+
+## 3. First inspect the current implementation
+
+Before coding, inspect the current code and write a short audit to `docs/idea_hypergraph_implementation_notes.md` containing:
+
+- existing components and routes worth reusing;
+- current database and migration conventions;
+- how projects/tasks/artifacts/events are represented;
+- how to extend the current UI without replacing it;
+- available dependencies for EPUB/PDF/HTML/text parsing and visualization;
+- tests that must remain green;
+- the smallest concrete implementation plan.
+
+Do not stop after writing this note. Continue implementing in the same work session unless an actual blocker prevents it.
+
+## 4. Hypergraph model
+
+Use a relational representation in the existing SQLite database unless the current implementation already has a suitable graph store. The representation must support **hyperedges with arbitrary cardinality**; do not label a plain pairwise graph “a hypergraph.” Keep it simple and queryable.
+
+Minimum entities (adapt naming to repository conventions):
+
+### `resource`
+A book, book section, lecture, video, recording, interview, article, person, or other identifiable resource. Fields should include stable ID, resource type, title, creator(s), URL/path, publication date if known, language if known, metadata, created/updated timestamps, and source provenance. A resource may have parent/child structure (book → chapter; video → segment) without forcing every resource into a tree.
+
+### `concept`
+An idea, claim, question, method, entity, motif, technique, or topic. Keep the kind explicit. Do not collapse a source's assertion into the user's belief. Support aliases and merge/correction without losing history.
+
+### `hyperedge` and `hyperedge_member`
+A hyperedge has a type, status, provenance, confidence, optional valid-time range, and explanation. Its membership table identifies multiple participating nodes and the role each plays. Support types such as:
+
+- `covers`: a resource/segment covers one or more concepts;
+- `prerequisite_for`: concepts related by a prerequisite relation;
+- `overlaps_with`: resources overlap in subject matter, supported by covered concepts or source passages;
+- `adds_material`: one resource provides substantive material absent from another;
+- `illustrates`: an example or recording illustrates a concept/motif;
+- `created_by` / `features_person`: resource and people/creators;
+- `related_to`: a weaker, explicitly typed relation when a stronger claim is unsupported;
+- `user_likes` / `user_dislikes` / `user_wants_to_explore`: a user reaction or preference, with timestamp and provenance.
+
+Avoid turning every association into `related_to`. Use meaningful relation types and record uncertainty.
+
+### `content_unit`
+A page, chapter, section, transcript segment, timestamp range, or other subresource with stable locator where available. Store extracted text and content hashes only when lawful and appropriate; do not duplicate full copyrighted books unnecessarily. Keep short evidence excerpts or offsets sufficient to show why a relationship was inferred.
+
+### `activity_event`
+Append-only events such as reading progress, watching/listening progress, completion, revisit, rating, dismissal, user correction, or goal change. Store event time, source, start/end location when known, normalized fraction where valid, and relevant metadata. Corrections append a new event or correction record; do not silently rewrite away the history.
+
+### `user_preference`
+Explicit preferences and inferred preferences must remain distinct. Store scope, statement/value, confidence, provenance, and whether the user confirmed it. A single ignored recommendation is weak evidence, not proof of disinterest.
+
+### `recommendation`
+Candidate resource/action, reason/features, supporting graph paths or evidence, estimated overlap/novelty, effort, confidence, status (proposed/seen/accepted/dismissed/completed/expired), and timestamps. Never repeatedly surface a dismissed item unless circumstances materially change or the user asks.
+
+If the current schema already has an appropriate entity (for example, `artifact` or `event`), extend/reuse it where that preserves clear semantics. Add reversible SQLite migrations and tests. Avoid redundant parallel stores for the same information.
+
+## 5. Provenance and epistemic status
+
+Every imported field and graph relationship must be distinguishable as one of:
+
+- observed directly from a local file or supported metadata source;
+- extracted from accessible text/transcript, with a source locator/hash;
+- explicitly entered or corrected by the user;
+- deterministically calculated (such as progress fraction);
+- inferred by a model, pending user validation;
+- inferred heuristically, with its limits stated.
+
+Model-derived semantic data must use a structured schema and include evidence references to available input. Invalid model output must be rejected or quarantined, not silently coerced into trusted graph state. The UI should let the user inspect, accept, edit, reject, merge, or disconnect proposed concepts/relations. Never assert two resources are “the same” merely because their titles or tags match.
+
+## 6. Local Books ingestion and progress
+
+Implement an ingestion interface and working scanner for a configured Books directory.
+
+- Support files whose parsers are available in the current dependency set, prioritizing EPUB, PDF, HTML, Markdown, and plain text. Detect formats and expose unsupported formats explicitly rather than pretending to have read them.
+- EPUB: extract embedded metadata and chapter/section structure using appropriate archive/XML parsing; preserve file identity and a stable content hash.
+- PDF: extract metadata/page count and text where a supported parser is available. Page positions are valid units for a fixed PDF.
+- HTML/Markdown/text: extract title where available, content, and sensible section headings.
+- Scan incrementally. Keep stable identities using canonical path plus content hash/metadata; avoid creating duplicates on repeat scans. A moved file should be detectable as a likely match, not automatically merged if ambiguous.
+- The scanner must not send file contents anywhere by default. Semantic enrichment is a separate, opt-in operation.
+- Keep original files read-only. Do not follow symlinks outside the selected root without explicit configuration.
+- Give the user a UI and CLI flow to add/scan a directory, inspect discovered books, and correct metadata.
+
+Reading progress:
+
+- A user can record “read from page 120 through 130 today”, or set a current page/percentage/chapter for a resource.
+- For fixed-page PDF/books where total page count is known, compute pages added and percentage deterministically. Detect revisiting an earlier segment instead of treating every position update as ten newly read pages.
+- For EPUB/reflowable content, use chapter/section/percentage or reader-provided position; do not claim stable physical page counts where none exist.
+- Store dated activity events and display daily progress/history. Show the unit actually measured (pages, chapters, percentage, timestamp range).
+- Offer manual updates as a complete first-class workflow; reader integrations are future adapters unless one can be implemented and tested using an existing, free, documented interface.
+- A dashboard may say “10 more pages of [book]; 20% complete” only when supported by actual progress events and a known total. Never fabricate activity or infer that opening a file means it was read.
+
+## 7. Resource import and semantic enrichment
+
+A resource can be added by file, URL, or manual entry. In this milestone:
+
+- Local text can be parsed as above.
+- A URL resource stores the URL and supplied metadata. Retrieve public title/metadata only through available, ordinary documented mechanisms where feasible; handle failures gracefully.
+- Transcripts or text can be imported from files or pasted by the user. If a YouTube transcript or music recording cannot be acquired through an existing accessible and permitted route, state that and allow manual linking/import. Do not promise a working YouTube integration unless tested.
+- Keep links as URLs and never fabricate destination URLs. A link found by external search needs to be preserved as a sourced candidate.
+
+Define a replaceable `SemanticEnricher` interface accepting accessible text/metadata plus relevant existing graph context, returning structured proposals for concepts, covered units, relationships, and evidence locators. It must be callable through a currently available configured backend; no particular commercial API or the Codex SDK is required. No paid provider can be required for the core application.
+
+If no configured semantic backend is available:
+
+- the scanner/progress/graph/query/dashboard must still work;
+- the user can add/edit concepts and connect resources manually;
+- candidate recommendations may use already-established graph relationships;
+- the interface must clearly mark model-dependent enrichment unavailable;
+- tests use a deterministic fake enricher only inside tests/fixtures, clearly separated from production configuration.
+
+Do not use keyword overlap alone to claim semantic equivalence. Lexical overlap can propose a low-confidence candidate, explicitly labeled as such.
+
+## 8. Recommendation engine: marginal value, not a reading quota
+
+Implement a transparent first recommendation policy using known graph relationships and recorded user state. It need not be a sophisticated recommender, but it must be real, queryable, and explainable.
+
+Candidate dimensions:
+
+- relevance to a current resource, concept, project, or explicit interest;
+- novelty relative to resources and concepts already encountered;
+- overlap with completed/consumed material;
+- substantive unique material potentially added;
+- timing (for example, a specific book chapter currently in progress);
+- estimated attention cost;
+- explicit likes/dislikes and feedback on previous recommendations.
+
+Prefer a small set of high-value candidates to an endless feed. Provide defaults that keep nudges sparse and let the user adjust or disable recommendations. Ignored suggestions reduce priority weakly; explicit dismissal should suppress repeats. Respect enjoyment as a legitimate objective; do not claim to optimize a person's intellectual evolution objectively.
+
+Each surfaced recommendation must answer “why this, why now?” and expose evidence. Examples:
+
+- “This lecture covers concepts also present in the chapters you marked read; estimated overlap is high. It may be skippable unless you want a second explanation.”
+- “This section is associated with the Crab Canon. This linked recording may be useful at your current point.”
+- “This interview features the same guest and is newer than the one you liked. These topics overlap; these others appear additional.”
+
+These are target interaction examples, not claims that the required resources are already indexed. If the graph does not contain enough evidence, ask for input or offer a clearly labeled candidate—not a confident recommendation.
+
+Store recommendation explanations in structured form, including evidence paths, so they remain inspectable after the model response is gone.
+
+## 9. UI and CLI deliverables
+
+Extend the existing UI and CLI rather than replacing them.
+
+### UI
+
+At minimum:
+
+1. **Home / Today:** current reading/listening progress, recent activity, and at most a few contextual recommendations with explanations and links.
+2. **Library:** imported resources, search/filter, format/metadata status, progress, and duplicate/possible-match indicators.
+3. **Resource detail:** metadata, progress control, content units, known concepts, related resources, overlap/unique-material evidence, and activity history.
+4. **Idea graph:** interactive graph visualization with node/edge/hyperedge labels, selection, filtering, and a detail panel showing provenance and confidence. Show actual hyperedge membership rather than visually pretending every n-ary relation is just a set of unrelated lines. A simple readable view is preferable to an elaborate graph that cannot be inspected.
+5. **Recommendations:** accept, dismiss, defer, and give concise feedback; show why each was selected and which data support it.
+6. **Settings:** configure library roots, scanning behavior, semantic backend availability, and recommendation frequency. Never expose secrets in the UI or logs.
+
+### CLI
+
+Provide discoverable commands consistent with the existing `par` CLI, for example:
+
+- scan/configure library root;
+- list/search resources;
+- record progress;
+- add URL/resource;
+- inspect concepts/relations;
+- list/explain recommendations;
+- accept/dismiss/correct a recommendation or relationship;
+- export/import the graph as a portable, versioned JSON document.
+
+Treat these as command examples, not mandatory exact spellings if an existing CLI convention differs. Provide `--help` and test important commands.
+
+## 10. Graph visualization and portable data
+
+- Use the UI stack already present. Avoid introducing an elaborate dependency solely for the visualization.
+- The graph must be useful for inspecting a small relevant neighborhood and its evidence, not just a giant hairball. Provide search, filters, neighborhood expansion, and a selected-item detail panel.
+- Provide a versioned export/import format for resources, concepts, hyperedges/members, activity, preferences, and recommendation feedback. Preserve IDs/provenance where possible; validate imports and report conflicts.
+- Multiple-computer support means the data format and configuration are portable. Do **not** synchronize a live SQLite database by putting it in a consumer cloud-sync folder. Cross-device synchronization can be designed later on top of explicit export/import or a proper service/protocol.
+
+## 11. Acceptance tests — required evidence
+
+All tests must be executable from repository instructions. Add deterministic fixtures. Never assert that a model actually read/analyzed a file unless a configured real backend did so.
+
+### A. Resource scanner
+
+- Scan a temporary directory with a small EPUB fixture, a text/Markdown fixture, and a supported PDF fixture if the dependency is available.
+- Verify detected type, extracted metadata/content units where supported, stable identity across a second scan, and duplicate/changed-file behavior.
+- Verify the original files have not been modified.
+- Verify malformed and unsupported files are reported without aborting the entire scan.
+
+### B. Progress and chart
+
+- Create a fixed-page fixture with 200 pages.
+- Record the user progressing from page 90 to page 100, then 100 to 110 on a given date.
+- Verify today's newly read count is 20 pages, total progress is 55%, and the daily chart data is correct.
+- Record a correction or revisit and ensure it does not double-count the same range as new reading.
+- Confirm EPUB progress is displayed using its chosen valid unit, not invented page counts.
+
+### C. Actual hypergraph semantics
+
+- Persist a hyperedge involving at least three nodes with distinct member roles.
+- Reload it and verify all members, roles, provenance, and confidence remain intact.
+- Verify graph export/import preserves its meaning and detects invalid IDs or schemas.
+
+### D. Evidence-supported overlap and recommendation
+
+Use synthetic fixtures with known content and expected relations, not claims about uninspected real books:
+
+- resource A covers concepts X and Y;
+- resource B covers X and Y plus Z;
+- the user's activity marks A's relevant unit as completed;
+- the recommender explains the overlap and indicates Z as possible additional material only when that relation is represented by evidence.
+
+The test must verify that weak title/keyword matches alone never yield a high-confidence “same material” claim.
+
+### E. Contextual cross-domain recommendation
+
+Create a fixture graph linking a named section to a musical motif and a resource representing a recording. After recording progress in that section, verify the candidate recording can be surfaced with a traceable explanation and valid stored URL. Also test that explicit dismissal suppresses repeated recommendations.
+
+### F. User reactions and cautious inference
+
+- Record a positive reaction to a sample interview and a newer interview featuring the same guest.
+- Verify it can be recommended if the required metadata/relationships exist.
+- Verify a single ignored recommendation does not create a definitive negative preference.
+
+### G. Existing runtime regression
+
+- Existing tests remain green.
+- Existing projects/tasks/artifacts and task status still load.
+- Application starts and the core flow works on the development host.
+- Provide a documented manual smoke-test path for at least one other OS; do not claim an OS has been tested unless it has.
+
+## 12. Implementation order
+
+Do the work in this order, continuing through each phase unless genuinely blocked:
+
+1. Audit the existing application and document implementation notes.
+2. Add backward-compatible database migrations and hypergraph/provenance services.
+3. Implement directory scanning, resource records, content units, and manual progress events.
+4. Build the working library/resource detail/Today UI and deterministic progress graph.
+5. Add hypergraph inspection, versioned import/export, and CLI commands.
+6. Add the transparent recommendation engine using established relations and feedback.
+7. Add the optional semantic-enrichment interface and a clearly identified unavailable state when no real backend is configured.
+8. Add tests for all acceptance criteria, run them, start the app, and perform a manual smoke test.
+9. Update README and `docs/status.md` with exact supported formats, tested behavior, limitations, and startup commands.
+
+If time is limited, finish a smaller end-to-end slice (scan → progress → graph/data → one evidence-supported recommendation) rather than scattering unfinished code across all phases. Do not stop after writing a plan.
+
+## 13. Definition of done and final report
+
+The milestone is done only when all are true:
+
+- Omnibus demonstrably stores and queries a real n-ary idea hypergraph.
+- A user can scan a local Books folder, inspect discovered resources, and record progress.
+- Progress and a chart survive application restart.
+- The UI displays an inspectable graph neighborhood with source/provenance data.
+- A contextual recommendation is generated from known relationships and user state, with an explanation, not just a generic LLM suggestion.
+- The user can correct relationships and dismiss recommendations, and those actions affect future outputs.
+- Core functionality requires no model call and no paid API.
+- No original book files are changed.
+- Existing tests plus new tests pass, or failures are clearly reported without false success claims.
+
+Final report must name changed files, migrations, test commands and raw pass/fail counts, actual manual smoke-test steps/results, supported/unsupported file types, whether any real semantic backend was configured and tested, and unresolved defects. Never claim successful semantic discovery based solely on synthetic fixtures or a fake worker.
