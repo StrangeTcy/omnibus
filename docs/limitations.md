@@ -1,3 +1,8 @@
+> V0.3 current limits and verification results: [v03.md](v03.md),
+> [status.md](status.md), and [real-account acceptance](v03-operator-acceptance.md).
+> Public retrieval is implemented but its actual sandbox probe failed; live provider
+> acceptance is still pending. Older no-discovery descriptions below are historical.
+
 > **Update:** the prior unavailable semantic seam now has an executable local Ollama path.
 > See [current setup, tests and remaining blockers](local-semantic-analysis.md).
 > Live-model acceptance and autonomous discovery remain incomplete; historical

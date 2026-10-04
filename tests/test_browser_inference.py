@@ -187,3 +187,19 @@ def test_browser_to_graph_preserves_provider_and_delivery_evidence(tmp_path, mon
     assert run['worker_metadata']['browser_delivery']['provider'] == 'deepseek'
     edge = Knowledge(service.store).edges()[0]
     assert edge['status'] == 'proposed' and 'deepseek web UI' in edge['provenance'][0]['description']
+
+
+def test_composer_without_account_control_is_not_session_acceptance(monkeypatch):
+    page = Page()
+    install_fake_browser(monkeypatch, page)
+    original = page.locator
+    class MissingAccount:
+        async def count(self): return 0
+    page.locator = lambda selector: MissingAccount() if selector.startswith(':is(') else original(selector)
+    stages = []
+    def journal(data): raise AssertionError('Unsigned-in page must not receive text')
+    client = BrowserChat(config(), journal)
+    client.observe = lambda stage, detail: stages.append(stage)
+    with pytest.raises(WorkerFailure, match='account control'):
+        asyncio.run(client.generate([], {}))
+    assert stages == ['browser_reachable'] and not page.prompt and not page.submitted

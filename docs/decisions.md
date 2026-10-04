@@ -98,3 +98,16 @@
 - External source disclosure requires exact-provider approval on each job.
 - Journal before text entry; uncertain browser submissions never auto-replay.
 - Provider DOM presets are experimental until authenticated live acceptance.
+
+## V0.3 amendments
+
+- Use an actual independent public search/fetch capability, never provider prose
+  as evidence that web search or verification occurred. Model URLs are not trusted.
+- Preserve raw search/page and parsed source snapshots in existing artifacts; nodes,
+  quote-backed proposed relations, human decisions and feedback keep existing semantics.
+- Report source-reported metadata and semantic uncertainty; retrieval is not truth,
+  watching/listening, identity corroboration or whole-resource equivalence.
+- Add independent stage observations to existing run JSON/events, not another job
+  engine. Client rendering acknowledgement is not a visual quality claim.
+- Keep optional dependencies optional; no paid key, required model installation,
+  Codex SDK, new orchestration, full-library automation or reader integration.

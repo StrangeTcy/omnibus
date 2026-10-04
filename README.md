@@ -11,6 +11,19 @@ Scanning, progress, graph queries and recommendations from confirmed relationshi
 make **zero model calls**. The existing task runtime and optional worker adapters
 remain available, but Codex is not required for Intellectual Life.
 
+## V0.3 — useful recommendations with explicit evidence
+
+The existing slice now connects reviewed source comparisons to evidence-rich
+recommendations, with a public search/retrieval capability independent of chat
+providers. Candidate URLs and reported metadata must actually be retrieved;
+manual/unverified links are labeled and unsupported model URL claims are withheld.
+Progress, feedback and per-run acceptance stages remain durable and inspectable.
+
+Start with [V0.3 usage and limits](docs/v03.md), the [pre-change audit](docs/v03-audit.md),
+and the [real browser-account acceptance checklist](docs/v03-operator-acceptance.md).
+Local automated/synthetic tests are not a substitute for authenticated live-provider
+acceptance on your machine. No paid API, Ollama or Codex SDK is required.
+
 ## Browser-account backend — intended integration
 
 Omnibus is intended to use your signed-in **ChatGPT / Claude / DeepSeek website

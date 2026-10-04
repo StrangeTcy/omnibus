@@ -1,3 +1,19 @@
+# V0.3 checklist
+
+- [x] Audit existing scanner/graph/semantic/browser/recommendation/UI vertical slice
+- [x] Real opt-in search requests and independently retrieved candidate snapshots
+- [x] Provider-independent replaceable discovery interface, honest manual fallback
+- [x] Public-network/redirect/DNS-rebinding protections and bounded snapshots
+- [x] Quote-backed reviewed overlap/additional concepts and guest/illustration paths
+- [x] Candidate verification gates, evidence-rich sparse recommendations
+- [x] Persistent feedback and current-evidence recomputation after corrections
+- [x] Separate persisted acceptance stages including client DOM acknowledgement
+- [x] Synthetic pipeline/DOM/security tests and core-only installed-wheel tests
+- [ ] Real provider/account acceptance on the user's host (documented procedure)
+- [ ] Successful live public search/retrieval here (network/TLS blocked the actual probe)
+
+Historical scope checklists follow.
+
 # Intellectual Life checklist
 - [x] Pull and read upstream omnibus plans; preserve runtime and audit first
 - [x] Remove workflow from unpushed history; do not commit workflows

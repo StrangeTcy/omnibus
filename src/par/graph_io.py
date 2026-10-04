@@ -21,6 +21,14 @@ class ActivityRecord(Activity, Identity):
 class PreferenceRecord(Preference, Identity):
     pass
 class RecommendationRecord(Identity):
+    url: str | None = None
+    link_verification: dict = Field(default_factory=dict)
+    why_now: str = ''
+    encountered: list[str] = Field(default_factory=list)
+    may_add: list[str] = Field(default_factory=list)
+    evidence: list[dict] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    semantic_run_ids: list[str] = Field(default_factory=list)
     candidate_id: UUID
     reason: str = Field(max_length=5000)
     edge_ids: list[UUID]

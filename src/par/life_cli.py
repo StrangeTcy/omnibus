@@ -9,6 +9,7 @@ from .graph_io import export_graph, import_graph
 import asyncio
 from .semantic import SemanticService, AnalysisRequest, TextMaterial
 from .local_inference import LocalModelConfig
+from .discovery import Discovery, DiscoveryRequest, LinkProposal
 
 
 def configure(commands):
@@ -36,6 +37,14 @@ def configure(commands):
     review.add_argument('id')
     review.add_argument('decision', choices=['confirmed', 'rejected'])
     subs.add_parser('analyses', help='Inspect persisted semantic runs and diagnostics')
+    discovery = subs.add_parser('discover', help='Explicit public search and verified URL retrieval, not model-claimed search')
+    discovery.add_argument('focus_id')
+    discovery.add_argument('--query', default='')
+    discovery.add_argument('--url', help='Retrieve a manually supplied URL instead of searching')
+    discovery.add_argument('--authorize-network', action='store_true')
+    compare = subs.add_parser('compare', help='Compare represented confirmed coverage of two supplied sources')
+    compare.add_argument('source')
+    compare.add_argument('candidate')
     root = subs.add_parser('root', help='Authorize a local read-only library directory')
     root.add_argument('path')
     scan = subs.add_parser('scan', help='Scan a configured root ID (never edits originals)')
@@ -109,6 +118,10 @@ def run(store, args):
     graph, library = Knowledge(store), Library(store)
     command = args.life_command
     semantic = SemanticService(store)
+    if command == 'discover':
+        return Discovery(store).discover(DiscoveryRequest(focus_id=args.focus_id, query=args.query, url=args.url, authorize_network=args.authorize_network))
+    if command == 'compare':
+        return Recommender(store).compare(args.source, args.candidate)
     if command == 'model':
         if args.model or args.disable:
             semantic.config(LocalModelConfig(backend='disabled' if args.disable else 'ollama', model=args.model or '', endpoint=args.endpoint))

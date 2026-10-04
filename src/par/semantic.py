@@ -6,6 +6,7 @@ It never auto-confirms model semantics. Users review output, not construct edges
 import hashlib
 import json
 from pathlib import Path
+from typing import Literal
 from pydantic import Field, model_validator
 from .schemas import Payload, Submission, Budget
 from .knowledge_models import Node, Edge
@@ -14,6 +15,7 @@ from .artifacts import Artifacts
 from .library import parse_file, MAX_FILE
 from .local_inference import LocalModelConfig, Ollama
 from .browser_inference import BrowserChat
+from .acceptance import record, sync_reviews
 from .runtime import Runtime
 from .workers.base import Descriptor, Result, WorkerFailure
 from .security import redact
@@ -22,9 +24,10 @@ from .security import redact
 class Quotation(Payload):
     source_id: str
     quote: str = Field(min_length=10, max_length=240)
-    relation: str = Field(default='covers', pattern=r'^(covers|illustrates)$')
+    relation: str = Field(default='covers', pattern=r'^(covers|illustrates|features_person)$')
 
 class ConceptFinding(Payload):
+    kind: Literal['idea', 'person'] = 'idea'
     label: str = Field(min_length=2, max_length=100)
     description: str = Field(min_length=10, max_length=600)
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
@@ -64,6 +67,11 @@ Use relation "covers" for a passage teaching/discussing the idea. Use "illustrat
 only for a described example or recording illustrating an idea. A quoted statement
 supports a hypothesis, not proof that two entire books are equivalent. Never treat
 missing coverage in an excerpt as proof that it is absent from a whole resource.
+You may also return kind "person" for an explicitly identified interview guest,
+with relation "features_person" and quotes that identify that guest by name.
+Do not infer guests from titles, a host introduction alone, or a passing mention.
+Only unify a person across sources when the identity is supported; ambiguity belongs
+in limitations. Idea findings use kind "idea" and covers/illustrates, not features_person.
 Acknowledge these scope limitations. Use confidence conservatively.'''
 
 
@@ -73,6 +81,10 @@ def validate_answer(raw, sources):
     for concept in answer.concepts:
         seen = set()
         for e in concept.evidence:
+            if (concept.kind == 'person') != (e.relation == 'features_person'):
+                raise ValueError('Person findings require guest relations; ideas require coverage/illustration')
+            if concept.kind == 'person' and concept.label.casefold() not in e.quote.casefold():
+                raise ValueError('Guest name must occur in the supporting quotation')
             if e.source_id not in by_id or e.quote not in by_id[e.source_id]['text']:
                 raise ValueError('Model cited an unknown source or a quote not present in the supplied text')
             key = (e.source_id, e.relation)
@@ -111,17 +123,23 @@ class SemanticWorker:
                         raise WorkerFailure('interrupted', 'Run stopped before browser submission')
                     self.store.update('runs', run['id'], {'worker_metadata': {**current.get('worker_metadata', {}), 'browser_delivery': delivery}}, db)
                     self.store.event(run['id'], 'browser_send_attempted', delivery, db)
+                    record(self.store, run['id'], 'submission_attempted', delivery, db=db)
             client = BrowserChat(config, before_send)
+            client.observe = lambda stage, detail: record(self.store, run['id'], stage, detail)
         else:
             client = Ollama(config)
+            for stage in ['browser_reachable', 'provider_session', 'submission_attempted']:
+                record(self.store, run['id'], stage, {'backend': config.backend}, 'not_applicable')
         raw, metadata = await client.generate(
             [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json.dumps({'sources': sources}, ensure_ascii=False)}],
             SemanticAnswer.model_json_schema())
         raw = redact(raw)
         artifact = self.artifacts.write(raw.encode(), kind='semantic-model-output', mime='application/json', run_id=run['id'], provenance=config.backend+':'+str(metadata.get('model', config.model)))
+        record(self.store, run['id'], 'response_captured', {'artifact_id': artifact['id'], 'backend': config.backend, 'metadata': metadata})
         try:
             answer = validate_answer(raw, sources)
         except ValueError:
+            record(self.store, run['id'], 'semantic_validated', {'artifact_id': artifact['id'], 'reason': 'Quote/schema/source check failed'}, 'failed')
             self.store.event(run['id'], 'semantic_output_rejected', {'artifact': artifact['id'], 'reason': 'Schema/source/quotation validation failed'})
             raise WorkerFailure('invalid_output', 'Model output failed schema or exact-quotation validation. It was saved for inspection; no graph assertions installed.') from None
         source_map = {s['id']: s for s in sources}
@@ -129,21 +147,22 @@ class SemanticWorker:
         with self.store.connect() as db:
             if self.store.get('runs', run['id'], db)['status'] != 'running':
                 raise WorkerFailure('interrupted', 'Run stopped; semantic proposals were not installed')
+            record(self.store, run['id'], 'semantic_validated', {'input_artifact': spec['input_artifact'], 'response_artifact': artifact['id'], 'scope': 'Schema and literal quotations only; semantic truth remains unverified'}, db=db)
             for finding in answer.concepts:
                 evidence = []
                 for q in finding.evidence:
                     s = source_map[q.source_id]
                     evidence.append({'kind': 'model', 'description': f'Model {metadata.get("model", config.model)}; run {run["id"]}; verbatim quote: {q.quote}',
                                      'node_id': q.source_id, 'locator': (s['locator']+' [bounded input: '+s['scope']+']')[:500], 'sha256': s['sha256']})
-                data = Node(node_type='concept', kind='idea', title=finding.label, provenance=evidence,
+                data = Node(node_type='resource' if finding.kind == 'person' else 'concept', kind=finding.kind, title=finding.label, provenance=evidence,
                             metadata={'semantic_run': run['id'], 'hypothesis': True, 'description': finding.description})
                 c = self.store.add('nodes', data.model_dump(mode='json'), db, parent_id=None)
                 concepts.append(c['id'])
-                for relation in ['covers', 'illustrates']:
+                for relation in ['covers', 'illustrates', 'features_person']:
                     members = [{'node_id': q.source_id, 'role': 'source' if relation == 'covers' else 'resource'} for q in finding.evidence if q.relation == relation]
                     if not members:
                         continue
-                    members.append({'node_id': c['id'], 'role': 'concept'})
+                    members.append({'node_id': c['id'], 'role': 'person' if finding.kind == 'person' else 'concept'})
                     e = Edge(type=relation, members=members, provenance=evidence, confidence=finding.confidence, status='proposed',
                              explanation=finding.description+' Scope: selected bounded text only; semantic hypothesis, not independently verified equivalence.')
                     row = self.store.add('edges', e.model_dump(mode='json', exclude={'members'}), db)
@@ -226,7 +245,15 @@ class SemanticService:
         if node['status'] != 'active' or resource['status'] != 'active':
             raise ValueError('Source has been superseded; select its current version')
         scope, text = 'selected content unit', None
-        if artifact_id := resource['metadata'].get('text_artifact'):
+        if resource['metadata'].get('discovery'):
+            from .discovery import verified_snapshot
+            snap = verified_snapshot(self.store, resource)
+            if not snap:
+                raise ValueError('Retrieved source snapshot is missing or mismatched; reverify it')
+            _, start, end = node['locator'].split(':')
+            text = snap['text'][int(start):int(end)]
+            scope = 'retrieved webpage segment, not a watched recording or full transcript'
+        elif artifact_id := resource['metadata'].get('text_artifact'):
             text = self.artifacts.read(artifact_id).decode()
             _, start, end = node['locator'].split(':')
             text = text[int(start):int(end)]
@@ -278,6 +305,8 @@ class SemanticService:
         return obj
 
     def analyses(self):
+        from .knowledge import Knowledge
+        sync_reviews(self.store, Knowledge(self.store).edges())
         result = []
         for run in self.store.list('runs'):
             if run['worker'] in {'semantic-analysis', 'ollama-semantic'}:
@@ -305,4 +334,5 @@ class SemanticService:
             updated = {**run['worker_metadata'], 'semantic': {**review, 'review': decision}}
             self.store.update('runs', run_id, {'worker_metadata': updated}, db)
             self.store.event(run_id, 'semantic_review', {'decision': decision}, db)
+            record(self.store, run_id, 'proposals_reviewed', {'edges': {id: decision for id in review['edge_ids']}}, db=db)
         return self.store.get('runs', run_id)

@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from .db import now
 from .knowledge import Knowledge, user_evidence
 from .knowledge_models import Feedback
+from .discovery import link_evidence, checked_discovery_edge
+from .acceptance import record, sync_reviews
 
 class Recommender:
     def __init__(self, store):
@@ -14,6 +16,7 @@ class Recommender:
             return []
         nodes = {n['id']: n for n in self.store.list('nodes') if n['status'] == 'active'}
         edges = [e for e in self.graph.edges() if e['status'] == 'confirmed' and e['confidence'] >= .6 and (not e.get('valid_from') or e['valid_from'] <= now()[:10]) and (not e.get('valid_until') or e['valid_until'] >= now()[:10]) and all(m['node_id'] in nodes for m in e['members'])]
+        edges = [e for e in edges if checked_discovery_edge(self.store, e, nodes)]
         activity = self.store.list('activity')
         resources = {id: n for id, n in nodes.items() if n['node_type'] == 'resource'}
         # Current content units are selected by actual progress, never file opening.
@@ -57,7 +60,23 @@ class Recommender:
         def add(id, reason, supporting, concept_ids=(), extra=(), trigger_ids=(), score=1):
             if id not in resources or id in consumed:
                 return
-            candidates[id] = {'candidate_id': id, 'reason': reason, 'edge_ids': sorted(set(supporting)),
+            verification = link_evidence(self.store, resources[id])
+            if verification['status'] in {'unverified_discovery', 'unverified_claim'}:
+                return
+            supporting = set(supporting)
+            run_ids = set()
+            evidence = []
+            for edge in edges:
+                if edge['id'] in supporting:
+                    evidence.append({'edge_id': edge['id'], 'explanation': edge['explanation'], 'provenance': edge['provenance']})
+                    for member in edge['members']:
+                        if rid := nodes[member['node_id']]['metadata'].get('semantic_run'):
+                            run_ids.add(rid)
+            candidates[id] = {'candidate_id': id, 'url': verification['url'], 'link_verification': verification,
+                              'why_now': reason, 'encountered': [nodes[c]['title'] for c in sorted(concept_ids)],
+                              'may_add': [nodes[c]['title'] for c in sorted(extra)], 'evidence': evidence,
+                              'uncertainties': verification['uncertainties']+['Coverage describes represented evidence only, not complete resources or demonstrated understanding.', 'Publication dates and person identity remain source/user assertions; a retrieved page is not independent corroboration.'],
+                              'semantic_run_ids': sorted(run_ids), 'reason': reason, 'edge_ids': sorted(set(supporting)),
                               'activity_ids': sorted(set(trigger_ids)), 'overlap_concepts': sorted(concept_ids),
                               'additional_concepts': sorted(extra), 'score': score,
                               'confidence': min([e['confidence'] for e in edges if e['id'] in supporting] or [.6]),
@@ -85,24 +104,26 @@ class Recommender:
                 if cover['type'] == 'covers' and sources & current and concepts & motifs:
                     for recording in recordings:
                         if recording in resources and resources[recording]['url']:
-                            add(recording, 'A concept at your current reading position is illustrated by this linked resource.', [e['id'], cover['id']], trigger_ids=[triggers[n] for n in sources & current], score=3)
+                            add(recording, 'A concept at your current reading position is illustrated by this linked resource.', [e['id'], cover['id']], concept_ids=concepts & motifs, trigger_ids=[triggers[n] for n in sources & current], score=3)
         # Positive reaction is explicit; one ignore never becomes a dislike.
         latest_reactions = {}
         for a in sorted(activity, key=lambda a: (a['at'], a['created'])):
             if a['kind'] == 'reaction':
                 latest_reactions[a['node_id']] = a
         guest_edges = [e for e in edges if e['type'] == 'features_person']
+        def resource_id(id):
+            return nodes[id]['parent_id'] if nodes[id]['node_type'] == 'unit' else id
         for id, reaction in latest_reactions.items():
             if reaction['reaction'] != 'like' or id not in resources:
                 continue
             for old in guest_edges:
-                if not any(m['node_id'] == id and m['role'] == 'resource' for m in old['members']):
+                if not any(m['role'] == 'resource' and resource_id(m['node_id']) == id for m in old['members']):
                     continue
                 people = {m['node_id'] for m in old['members'] if m['role'] == 'person'}
                 for new in guest_edges:
                     if people & {m['node_id'] for m in new['members'] if m['role'] == 'person'}:
                         for m in new['members']:
-                            target = resources.get(m['node_id']) if m['role'] == 'resource' else None
+                            target = resources.get(resource_id(m['node_id'])) if m['role'] == 'resource' else None
                             if target and target['url'] and target['published'] and resources[id]['published'] and target['published'] > resources[id]['published']:
                                 add(target['id'], 'You liked an interview with this guest. This linked interview has a newer supplied publication date; topic overlap has not been established.', [old['id'], new['id']], trigger_ids=[reaction['id']], score=2.5)
         existing = self.store.list('recommendations')
@@ -128,7 +149,58 @@ class Recommender:
                 row = self.store.add('recommendations', {**candidate, 'status': 'proposed', 'feedback': [], 'ignored': 0, 'defer_until': None})
                 existing.append(row)
             visible.append(row)
+        sync_reviews(self.store, self.graph.edges())
+        generated = {}
+        for rec in visible:
+            for run_id in rec['semantic_run_ids']:
+                generated.setdefault(run_id, []).append(rec['id'])
+        for run_id, ids in generated.items():
+            try:
+                record(self.store, run_id, 'recommendation_generated', {'recommendation_ids': sorted(ids)})
+            except KeyError:
+                pass  # Portable graph may reference absent runtime history.
         return sorted(visible, key=lambda r: -r['score'])[:settings['daily_limit']]
+
+    def rendered(self, id):
+        visible = {r['id']: r for r in self.generate()}
+        if id not in visible:
+            raise ValueError('Recommendation is no longer eligible/visible')
+        rec = visible[id]
+        for run_id in rec.get('semantic_run_ids', []):
+            try:
+                previous = self.store.get('runs', run_id).get('acceptance', {}).get('recommendation_rendered', {}).get('detail', {}).get('recommendation_ids', [])
+                record(self.store, run_id, 'recommendation_rendered', {'recommendation_ids': sorted(set(previous+[id])), 'basis': 'UI client acknowledged DOM insertion; not a visual-quality test'})
+            except KeyError:
+                pass
+        return {'acknowledged': id}
+
+    def compare(self, source, candidate):
+        nodes = {n['id']: n for n in self.store.list('nodes')}
+        if source == candidate or any(id not in nodes or nodes[id]['node_type'] not in {'unit', 'resource'} for id in [source, candidate]):
+            raise ValueError('Choose two distinct supplied sources')
+        concepts, paths = {}, {}
+        for id in [source, candidate]:
+            concepts[id], paths[id] = set(), []
+            for e in self.graph.edges():
+                if e['status'] != 'confirmed' or e['type'] != 'covers' or e['confidence'] < .6:
+                    continue
+                if (e.get('valid_from') and e['valid_from'] > now()[:10]) or (e.get('valid_until') and e['valid_until'] < now()[:10]):
+                    continue
+                if not all(nodes[m['node_id']]['status'] == 'active' for m in e['members']):
+                    continue
+                if not checked_discovery_edge(self.store, e, nodes):
+                    continue
+                if any(m['role'] == 'source' and (m['node_id'] == id or nodes[m['node_id']]['parent_id'] == id) for m in e['members']):
+                    concepts[id].update(m['node_id'] for m in e['members'] if m['role'] == 'concept')
+                    paths[id].append(e)
+        shared = concepts[source] & concepts[candidate]
+        names = lambda ids: [{'id': id, 'title': nodes[id]['title']} for id in sorted(ids)]
+        return {'source_id': source, 'candidate_id': candidate, 'shared': names(shared),
+                'additional_in_candidate': names(concepts[candidate]-concepts[source]),
+                'only_in_source': names(concepts[source]-concepts[candidate]),
+                'candidate_represented_overlap': len(shared)/len(concepts[candidate]) if concepts[candidate] else None,
+                'evidence': paths, 'source_progress': self.graph.progress(source),
+                'uncertainty': 'Unweighted fraction of represented confirmed concepts only, not whole-resource equivalence or proof that missing concepts are absent. Source exposure requires recorded progress.'}
 
     def feedback(self, id, feedback: Feedback):
         with self.store.connect() as db:

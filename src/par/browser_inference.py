@@ -12,10 +12,13 @@ from .workers.base import WorkerFailure
 
 PROVIDERS = {
     'chatgpt': {'url': 'https://chatgpt.com/', 'composer': '#prompt-textarea',
+                'account': '[data-testid="accounts-profile-button"], button[aria-label="Open profile menu"]',
                 'answer': '[data-message-author-role="assistant"]'},
     'claude': {'url': 'https://claude.ai/new', 'composer': 'div.ProseMirror[contenteditable="true"]',
+               'account': '[data-testid="user-menu-button"], [data-testid="user-menu-trigger"]',
                'answer': '.font-claude-response'},
     'deepseek': {'url': 'https://chat.deepseek.com/', 'composer': 'textarea',
+                 'account': '[data-testid="user-menu"], button[aria-label="User menu"]',
                  'answer': '.ds-markdown'},
 }
 
@@ -53,6 +56,7 @@ def websocket_endpoint(data, endpoint):
 class BrowserChat:
     def __init__(self, config, before_send=None):
         self.config, self.before_send = config, before_send
+        self.observe = lambda stage, detail: None
 
     async def ready(self):
         if not self.config.dedicated_browser_profile:
@@ -88,6 +92,7 @@ class BrowserChat:
         if self.before_send is None:
             raise WorkerFailure('configuration', 'Browser sending requires a durable pre-send journal callback')
         ready = await self.ready()
+        self.observe('browser_reachable', {'browser_version': ready['browser_version'], 'basis': 'Local CDP response; not account authentication'})
         from playwright.async_api import async_playwright
         sent = False
         provider = PROVIDERS[self.config.browser_provider]
@@ -110,6 +115,10 @@ class BrowserChat:
                     await composer.first.wait_for(state='visible')
                     if await composer.count() != 1 or not await composer.is_editable():
                         raise WorkerFailure('website_changed', 'No unambiguous editable composer. Sign in manually or update the provider adapter; nothing sent.')
+                    if not await page.locator(':is('+provider['account']+'):visible').count():
+                        raise WorkerFailure('authentication', 'Provider page/composer accessible but no recognized signed-in account control. Check login or adapter selectors manually; no source text entered.')
+                    self.observe('provider_session', {'provider': self.config.browser_provider,
+                        'basis': 'Expected HTTPS page, editable composer and recognized account control visible; account identity/subscription/model availability not verified'})
                     existing = await composer.input_value() if await composer.evaluate('(e) => e.tagName === "TEXTAREA"') else await composer.inner_text()
                     if existing.strip():
                         raise WorkerFailure('website_changed', 'Fresh chat has a draft; refusing to overwrite it')

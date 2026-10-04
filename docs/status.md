@@ -1,3 +1,43 @@
+# V0.3 status — 2026-10-04
+
+Implemented on `arena/01a107a0-omnibus`, extending the existing architecture:
+
+- Actual opt-in public search and separate candidate retrieval, bounded public-only
+  DNS-pinned transport, snapshots, page-reported metadata and visible failure reports.
+- Explicit provenance for search vs supplied URLs; missing/mismatched retrieval
+  evidence and unquoted discovered relationships cannot support recommendations.
+- Confirmed graph comparison with shared/additional represented ideas; richer
+  why-now, encountered/current concepts, possible additions, URL and uncertainty.
+- Semantic guest proposals require name-bearing source quotes; same-guest newer-
+  interview rules work with retrieved, reviewed evidence. No invented dates or URLs.
+- Separate persisted browser reachability, expected account controls, submission,
+  captured response, validation, review, generation and UI DOM acknowledgement.
+  Uncertain sends retain their no-replay guard. Individual corrections/supersession
+  are reflected in review evidence and current comparison/recommendation eligibility.
+- Discovery/comparison UI and API/CLI; operator test documented separately.
+
+Validation: **106 passed, 3 skipped** in the environment with browser/books extras;
+**99 passed, 10 skipped** against an installed **0.3.0 core-only wheel** (no Playwright,
+PDF parser or Codex SDK). The full-environment skips are optional SDK contract and
+two opt-in live Codex tests; core adds six browser-fixture cases and PDF parsing.
+Python compileall, JS syntax and whitespace checks passed. A synthetic JSDOM test
+rendered the actual UI code, checked recommendation/comparison text and the DOM
+acknowledgement, then verified feedback after application re-creation. This is not
+visual Chrome or live-provider acceptance.
+
+**Actual live limits:** no authenticated ChatGPT/Claude/DeepSeek account/browser
+was available here; none of their selectors, model outputs or sign-in behavior
+has passed live acceptance. An actual anonymous public search for `Crab Canon
+recording` failed at network/TLS retrieval. Its failure report was persisted and
+zero candidates were created. No successful external discovery or real-book model
+comparison is claimed from this sandbox.
+
+Read [V0.3 implementation/limits](v03.md), [audit](v03-audit.md), and
+[operator acceptance](v03-operator-acceptance.md). Historical reports follow;
+they describe earlier implementations/environments, not additional current passes.
+
+---
+
 # Browser-account correction — 2026-10-04
 
 User clarified the intended backend: their signed-in ChatGPT/Claude/DeepSeek

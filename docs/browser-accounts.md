@@ -1,3 +1,7 @@
+> V0.3 adds [independent public discovery and richer recommendation evidence](v03.md).
+> Use the [separate real-account operator test](v03-operator-acceptance.md);
+> browser-account acceptance remains unverified in this sandbox.
+
 # Browser accounts: Playwright + installed Chrome
 
 **Intended backend:** your signed-in ChatGPT, Claude or DeepSeek website account,
@@ -130,7 +134,8 @@ all automated access. No paid API key is required by this browser transport.
    is also loopback on the configured port. Disable HTTP redirects/environment proxies.
 2. Attach Playwright to that already running browser. Open **one new provider tab**;
    do not enumerate other tabs, read old conversations or export credentials.
-3. Require the expected HTTPS origin, one editable empty composer, and no previous
+3. Require the expected HTTPS origin, one editable empty composer, a recognized
+   visible signed-in account control, and no previous
    answers. Stop on a login redirect or incompatible page rather than guess controls.
 4. Persist a submission-attempt marker **before text entry** (sites may autosave
    drafts). Fill the selected source prompt and JSON schema, then press Enter once.

@@ -10,6 +10,7 @@ from .recommendations import Recommender
 from .graph_io import export_graph, import_graph
 from .semantic import SemanticService, AnalysisRequest, TextMaterial
 from .local_inference import LocalModelConfig
+from .discovery import Discovery, DiscoveryRequest, LinkProposal, link_evidence
 
 class Root(Payload):
     path: str = Field(min_length=1, max_length=4000)
@@ -24,6 +25,7 @@ class Merge(Payload):
 
 def install(app, store, templates, csrf):
     graph, library, recommendations = Knowledge(store), Library(store), Recommender(store)
+    discovery = Discovery(store)
     semantic = SemanticService(store, app.state.runtime)
     router = APIRouter(prefix='/api/life')
 
@@ -38,7 +40,43 @@ def install(app, store, templates, csrf):
                 'preferences': store.list('preferences'), 'roots': store.list('library_roots'),
                 'progress': {n['id']: graph.progress(n['id']) for n in nodes if n['node_type'] in {'resource', 'unit'}},
                 'recommendations': recommendations.generate(), 'settings': graph.settings(),
+                'link_evidence': {n['id']: link_evidence(store, n) for n in nodes if n['node_type'] == 'resource'},
                 'semantic': semantic.availability(), 'analyses': semantic.analyses(), 'reader': {'available': False, 'diagnostic': 'No reader integration configured. Record manual progress or imported positions explicitly.'}}
+
+    @router.get('/discovery/context/{id}')
+    def discovery_context(id: str):
+        return discovery.context(id)
+
+    @router.post('/discovery')
+    def discover(body: DiscoveryRequest):
+        return discovery.discover(body)
+
+    @router.get('/discovery-reports')
+    def discovery_reports():
+        import json
+        from .artifacts import Artifacts
+        artifacts = Artifacts(store)
+        return [{**json.loads(artifacts.read(a['id'])), 'report_id': a['id']} for a in store.list('artifacts') if a['kind'] == 'discovery-report'][-10:]
+
+    @router.get('/discovery/{id}/evidence')
+    def discovery_evidence(id: str):
+        from .discovery import verified_snapshot
+        snapshot = verified_snapshot(store, store.get('nodes', id))
+        if not snapshot:
+            raise ValueError('No intact verified page snapshot')
+        return snapshot
+
+    @router.post('/discovery/{id}/propose')
+    def discovery_propose(id: str, body: LinkProposal):
+        return discovery.propose_link(id, body)
+
+    @router.get('/comparison')
+    def comparison(source: str, candidate: str):
+        return recommendations.compare(source, candidate)
+
+    @router.post('/recommendations/{id}/rendered')
+    def rendered(id: str):
+        return recommendations.rendered(id)
 
     @router.put('/semantic/config')
     def semantic_config(body: LocalModelConfig):
