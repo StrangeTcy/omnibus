@@ -181,4 +181,8 @@ def create_app(config=None, worker=None):
         runtime.memories.forget(id)
         return {'forgotten': id}
 
+    from .life_api import install
+    from fastapi.staticfiles import StaticFiles
+    app.mount('/static', StaticFiles(directory=str(Path(__file__).parent / 'static')), name='static')
+    install(app, store, templates, csrf)
     return app

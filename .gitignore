@@ -10,3 +10,5 @@ dist/
 
 # Workflows are deliberately not committed in this repository.
 .github/workflows/
+
+.cache/

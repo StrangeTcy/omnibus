@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from .security import redact_data
 
-TABLES = {"projects", "tasks", "requests", "runs", "artifacts", "memories"}
+TABLES = {"projects", "tasks", "requests", "runs", "artifacts", "memories", "nodes", "edges", "activity", "preferences", "recommendations", "library_roots"}
 def now():
     return datetime.now(timezone.utc).isoformat()
 def uid():
@@ -22,11 +22,12 @@ class Store:
         with self.connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            if version > 1:
+            if version > 2:
                 raise ValueError("Database is newer than this runtime")
-            if version < 1:
-                sql = (Path(__file__).parent / "migrations/001_initial.sql").read_text()
-                db.executescript("BEGIN IMMEDIATE;\n" + sql + "\nCOMMIT;")
+            for target, name in [(1, '001_initial.sql'), (2, '002_intellectual_life.sql')]:
+                if version < target:
+                    sql = (Path(__file__).parent / 'migrations' / name).read_text()
+                    db.executescript('BEGIN IMMEDIATE;\n' + sql + '\nCOMMIT;')
             if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok" or db.execute("PRAGMA foreign_key_check").fetchall():
                 raise ValueError("Database integrity check failed")
 
@@ -49,7 +50,7 @@ class Store:
             with self.connect() as connection:
                 return self.add(table, data, connection, **refs)
         obj = {"id": uid(), "created": now(), **refs, **data}
-        allowed = {"tasks": {"project_id"}, "requests": {"task_id"}, "runs": {"task_id"}, "artifacts": {"run_id"}}.get(table, set())
+        allowed = {"tasks": {"project_id"}, "requests": {"task_id"}, "runs": {"task_id"}, "artifacts": {"run_id"}, "nodes": {"parent_id"}, "activity": {"node_id"}}.get(table, set())
         if not refs.keys() <= allowed:
             raise ValueError("Invalid reference")
         cols = ["id", "created", "data", *refs]

@@ -1,18 +1,80 @@
-# Personal Agent Runtime · PAR
+# Omnibus · Intellectual Life + Personal Agent Runtime
 
 A runnable, local-first **serial** personal-agent runtime. Own your requests,
 projects, memory, artifacts and event history; swap the worker independently.
 Python 3.11–3.13. No Docker, WSL, paid API key or model account is needed for the
 mock-backed core.
 
-**v0.2 status:** resumable worker-loop implementation, not an autonomous general-purpose agent.
-The deterministic mock is clearly labeled. The optional Codex SDK adapter is
-implemented against the installed 0.160.0 API, but read-only and writable live tasks both failed
-here because no authenticated Codex session is available. No successful live
-execution or sandbox validation is claimed. See [tested status](docs/status.md)
-and [limitations](docs/limitations.md).
+**Current milestone:** a working local library, reading-progress dashboard and
+inspectable n-ary idea hypergraph, extended in place according to `omnibus plans.txt`.
+Scanning, progress, graph queries and recommendations from confirmed relationships
+make **zero model calls**. The existing task runtime and optional worker adapters
+remain available, but Codex is not required for Intellectual Life.
 
-## Install and run
+## Intellectual Life — start here
+
+Linux/macOS:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[books,test]"
+.venv/bin/par serve
+```
+
+Windows PowerShell/cmd (native Python; no WSL):
+
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[books,test]"
+.venv\Scripts\par.exe serve
+```
+
+Open **http://127.0.0.1:8000/life**. Under **Settings**, add a Books directory on
+the server host and click **Scan read-only**. Open a discovered resource to record
+reading, a position, a revisit or a correction. The dashboard calculates daily
+newly read ranges and current progress without inventing activity.
+
+Supported: EPUB, UTF-8 text/Markdown/HTML, plus PDFs with the optional `[books]`
+extra. Unsupported/malformed files appear in the scan report. Original files are
+never moved or edited. Exact-content duplicates share a resource; changed content
+gets a separate version so old progress/evidence is not rewritten.
+
+Add concepts/resources and connect them with typed member roles and explicit
+provenance. The graph shows real hyperedge nodes (diamonds), not disguised pairwise
+links. Confirmed coverage, current-position connections and explicit reactions
+can produce a few evidence-backed suggestions; dismissal suppresses repeats.
+Titles alone never establish semantic equivalence.
+
+**No semantic model backend or reading-app integration is configured.** Manual
+progress, concept entry, relationship correction and supplied URL linking are
+complete workflows. There is no claimed YouTube/transcript connector, automatic
+semantic discovery or inspection of your actual books from this sandbox.
+
+With the virtual environment activated:
+
+```sh
+par life --help
+par life root "/path/to/Books"
+par life scan ROOT_ID
+par life resources --search "book title"
+par life progress RESOURCE_ID --kind position --end 90
+par life progress RESOURCE_ID --start 90 --end 100 --date 2026-10-04
+par life progress RESOURCE_ID --start 100 --end 110 --date 2026-10-04
+par life graph --focus RESOURCE_ID
+par life recommendations
+par life export intellectual-life.json
+```
+
+Replace IDs with the UUIDs printed by the previous command. Stop the server before
+offline CLI mutations; the UI/API use the authoritative running server. Use the
+same `--data-root PATH` for all commands. Import/export is explicit portable JSON,
+not cloud synchronization of a live SQLite file. **No workflow files are committed.**
+
+See [full Intellectual Life guide](docs/intellectual-life.md),
+[current test evidence](docs/status.md), and [implementation audit](docs/idea_hypergraph_implementation_notes.md).
+
+## Existing runtime — install and run
+
 
 ### Linux / macOS
 
@@ -317,8 +379,9 @@ python -m pip wheel --no-deps --wheel-dir wheelhouse .
 ```
 
 The default tests require no credentials. Live tests skip only when not opted in;
-when explicitly enabled, missing authentication fails. CI is configured for Ubuntu, Windows and macOS with Python
-3.11–3.13; those remote CI runs have **not** been observed in this session.
+when explicitly enabled, missing authentication fails. No GitHub Actions workflow is committed. Linux tests were observed locally;
+Windows/macOS and Python 3.12/3.13 have not been verified here. The manual
+cross-platform smoke instructions are in `docs/intellectual-life.md`.
 
 ## Troubleshooting
 

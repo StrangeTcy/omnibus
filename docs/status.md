@@ -1,174 +1,198 @@
-# Omnibus V0.2 — worker-loop handoff (2026-10-04)
+# Omnibus — Intellectual Life milestone status (2026-10-04)
 
-## Truthful outcome
+## Outcome
 
-The existing runtime was extended, not replaced. Readiness, real-only smokes,
-persisted turn/session metadata, SDK interruption, explicit continuation,
-checkpoint/remote-turn reconciliation, retained workspaces, and one authorized
-file task with an independent verifier are implemented and tested offline.
+Fetched upstream `main` at **10881b1**, read `omnibus plans.txt`, and implemented
+its final **Idea Hypergraph and Personal Intellectual Assistant** vertical slice
+in the existing runtime. No model or paid API is required or called for it.
 
-**No successful real model task is claimed.** This host has no authenticated
-Codex session. Both read-only and writable real smoke attempts returned exit 1
-and persisted `status: failed`, `error_kind: authentication`. The adapter used the
-actual installed SDK/account API and never substituted MockWorker. Both opted-in
-live integration tests failed for the same authentication reason.
+The working capability is: configure Books root → read-only scan → persistent
+resources/content units → manual progress/corrections → daily chart → explicit
+n-ary idea relationships → sparse, evidence-supported recommendations → inspect/
+correct/dismiss → portable graph export/import.
 
-See `v02-audit.md` for the pre-change defect inventory and inspected SDK contracts;
-`limitations.md` for unresolved boundaries. The baseline suite was 21 passed,
-1 skipped. All original credential-free tests still pass.
+**No automatic semantic discovery is claimed.** The new recommendation evidence
+was synthetic/manual, not analysis of Milewski, GEB, interviews or the user's real
+library. No semantic backend or reader-app connector is configured. The existing
+optional Codex worker is preserved; its previous authentication blocker is not a
+blocker for this deterministic capability.
 
-## Changed/new files relative to the V0.1 implementation
+## Git/workflow handling
 
-- `src/par/workers/codex_sdk.py`: real account readiness, safe typed failures,
-  inspected turn/interrupt/read APIs, reconciliation, metadata, bounded write policy.
-- `src/par/workers/base.py`: failure type and invocation execution/resume fields.
-- `src/par/runtime.py`: authorization gate, stable task workspace, checkpoints,
-  worker identity enforcement, continuation, cancellation tracking, artifact oracle.
-- `src/par/db.py`: interrupted recovery error classification, preserving legacy data.
-- `src/par/schemas.py`: explicit writable mode/authorization and fixed fixture type.
-- **New** `src/par/local_task.py`: immutable sales fixture, bounded output capture,
-  deterministic integer/schema/input-integrity verifier (no generated-code execution).
-- **New** `src/par/smoke.py`: real-only readiness and reproducible live task functions.
-- `src/par/cli.py`: worker-ready, smoke, resume, continue, safe Ctrl+C handling;
-  visibly labeled mock demo, no fallback.
-- `src/par/api.py`: readiness and conversation-continuation endpoints.
-- `src/par/verification.py`: existing approved-command verifier follows retained
-  workspace IDs on resumed attempts rather than assuming a new empty directory.
-- `src/par/__init__.py`, `pyproject.toml`: version 0.2.0; SDK remains pinned at 0.160.0.
-- **New** `tests/test_worker_loop.py`: offline SDK contract doubles and failure tests.
-- `tests/test_codex.py`: explicit live opt-in now fails on auth errors, plus writable
-  task/restart/thread-continuation integration test.
-- `README.md`, `docs/status.md`, `docs/limitations.md`, `docs/decisions.md`,
-  `docs/checklist.md`, **new** `docs/v02-audit.md`: commands, audit and evidence.
+Removed `.github/workflows/tests.yml` from the previously rejected, unpushed commit
+by amending that commit, then merged the upstream plans on the fixed session
+branch. No workflow exists in the reachable branch history. Workflow files are
+ignored; no workflow permissions are requested. Original brief/plans are preserved.
 
-No architecture rewrite, new memory system, scheduler, multimodal route or
-parallel orchestration. No credentials copied, no commits/pushes performed.
-Existing files were untracked from the preceding implementation; Git therefore
-shows the cumulative additions, not a separate V0.2 diff.
+## Files changed / migrations
 
-## Actual test commands and results
+New implementation:
 
-Environment: Linux, Python 3.11.2, openai-codex 0.160.0.
+- `src/par/knowledge_models.py`: validated nodes, evidence, n-ary edges, activity,
+  feedback/preferences and settings.
+- `src/par/knowledge.py`: durable graph/progress/corrections, concept merge and
+  bounded incidence-neighborhood queries.
+- `src/par/library.py`: bounded read-only EPUB/text/Markdown/HTML and optional PDF
+  parsing, hashes/duplicate locations/versioned changed content, scan reports.
+- `src/par/recommendations.py`: confirmed-evidence policies, persistent sparse
+  quota and inspectable explanations/feedback.
+- `src/par/graph_io.py`: versioned transactional JSON import/export with reference,
+  schema, cycle and conflict validation.
+- `src/par/enrichment.py`: explicit optional interfaces, unavailable production
+  backend and model-proposal evidence validation (no production fake).
+- `src/par/life_api.py`, `src/par/life_cli.py`: existing server/CLI extensions.
+- `src/par/templates/life.html`, `src/par/static/life.js`, `life.css`: Today/library/
+  detail/graph/recommendation/settings page with vanilla JS and SVG.
+- `src/par/migrations/002_intellectual_life.sql` and paired `.down.sql`.
+- `tests/test_intellectual_life.py`, `tests/manual_life_dom.cjs`.
+
+Updated: `src/par/db.py` migration runner/table refs; `api.py` route/static mount;
+`cli.py` life subcommands; runtime template navigation; `pyproject.toml` parser
+extras/static packaging; schema-version assertion in `tests/test_runtime.py`;
+`.gitignore`; README and documentation. Added implementation audit and full guide
+at `docs/idea_hypergraph_implementation_notes.md` and `docs/intellectual-life.md`.
+No general-runtime entities or worker architecture were replaced.
+
+Migration 002 adds `nodes`, `edges`, `edge_members`, append-only `activity`,
+`preferences`, `recommendations`, `library_roots`, `knowledge_settings`. Existing
+runtime tables remain intact. Upgrade and explicit destructive capability-only
+downgrade/reupgrade were tested with populated graph/runtime data. Back up before
+upgrading/downgrading; the down script is never run automatically.
+
+## Actual automated results
+
+Host: **Linux, Python 3.11.2**. New parsing dependencies tested: defusedxml 0.7.1,
+pypdf 6.19.0 (optional books extra). No paid calls, no workflow/remote CI run.
 
 ```sh
-.venv/bin/python -m pip install -e ".[test]"
+.venv/bin/python -m pip install -e ".[test,books]"
 .venv/bin/python -m pytest -q -rs
 ```
 
-**41 passed, 2 skipped, 1 warning** (repeated full-suite runs). Both skips are live tests not opted in.
-The existing Starlette/httpx deprecation warning remains; no test failed.
-
-Clean core-only wheel (no SDK installed):
+**56 passed, 2 skipped, 0 failed.** Two skips: old authenticated Codex integration
+tests not opted in. One existing Starlette/httpx TestClient deprecation warning.
+The previous runtime's behavioral tests remain green; only its expected schema
+version assertion was updated from 1 to 2 for the real migration.
 
 ```sh
-.venv/bin/python -m pip wheel --no-deps -w /tmp/par-v02-wheels .
-/tmp/par-core-env/bin/python -m pip install --no-deps --force-reinstall /tmp/par-v02-wheels/personal_agent_runtime-0.2.0-py3-none-any.whl
+.venv/bin/python -m pytest tests/test_intellectual_life.py -q
+```
+
+**15 passed, 0 failed.** Coverage includes:
+
+- EPUB metadata/spine; Markdown/text/HTML; real pypdf parsing of a generated
+  200-page PDF; unchanged source SHA-256/mtime; repeat scan; exact duplicates;
+  changed versions; possible moved locations; malformed/unsupported/symlink/XML
+  entity rejection without aborting neighboring files.
+- 90→100→110 on a known 200-page resource: 20 newly read pages, 55%, exact daily
+  chart; correction/revisit deduplication; EPUB chapter units; restart persistence.
+- Hyperedge with three nodes and three distinct roles; membership/evidence/confidence
+  preserved; valid export/import, no-op reimport, schema/ID/conflict/cycle rejection.
+- Synthetic A covers X/Y, B covers X/Y/Z, completed A: overlap X/Y and represented
+  additional Z, traceable to stored edges. Similar titles alone yield no claim.
+- Current section → concept/motif → supplied recording recommendation; dismissal
+  survives restart; explicit positive interview reaction → newer same-guest link;
+  ignore weakens priority without fabricating a negative preference.
+- Relationship rejection/supersession, concept merge/history, disabled/expired/
+  unconfirmed relation behavior, unavailable semantic backend and rejection of
+  invented semantic evidence locators.
+- UI HTTP/CSRF flow, CLI subprocess progress/export, migration rollback and whole-
+  database backup/restore with the graph included.
+
+Clean **wheel-installed core-only** environment (no pypdf or Codex SDK):
+
+```sh
+.venv/bin/python -m pip wheel --no-deps -w /tmp/omnibus-life-wheel .
+/tmp/par-core-env/bin/python -m pip install --force-reinstall --no-deps /tmp/omnibus-life-wheel/personal_agent_runtime-0.2.0-py3-none-any.whl
+/tmp/par-core-env/bin/python -m pip install "defusedxml>=0.7,<1"
 /tmp/par-core-env/bin/python -m pytest -q -rs
 ```
 
-**40 passed, 3 skipped, 1 warning** (core-only wheel). Additional skip is optional SDK
-signature checking. This separate environment and core dependencies were created
-in V0.1; the newly built V0.2 wheel was installed and tested. Compilation with
-`.venv/bin/python -m compileall -q src` also succeeded.
+**54 passed, 4 skipped, 0 failed.** Extra skips: optional SDK contract and optional
+PDF parser. This validates packaged templates/static assets/migrations as well as
+operation without a model SDK. The separate core environment was created during
+the preceding milestone; it was updated with the new wheel.
 
-Explicitly enabled real tests:
+Also passed: `python -m compileall -q src`, `node --check src/par/static/life.js`,
+`node --check tests/manual_life_dom.cjs`, `git diff --check`.
 
-```sh
-PAR_LIVE_CODEX=1 .venv/bin/python -m pytest tests/test_codex.py -m live -q -rs
-```
+## Actual running-application smoke
 
-**2 failed, 2 deselected.** Both failures: `No authenticated Codex session; run
-codex login on this host`. This is not relabeled as a passing mock test or a skip.
+Started real Uvicorn on `0.0.0.0:8765` in this preview environment, with an explicit
+throwaway access token and temporary data root. Default product binding remains
+loopback-only. Unauthenticated requests were rejected. All smoke servers were
+stopped afterward; no public unauthenticated service was left running.
 
-Actual CLI attempts (each exit 1):
+Ran the committed `tests/manual_life_dom.cjs` with jsdom against that live HTTP
+server (jsdom installed in a temporary directory). **Passed, zero DOM script
+errors.** It exercised:
 
-```sh
-.venv/bin/par worker-ready --worker codex
-.venv/bin/par --data-root /tmp/par-v02-final smoke --worker codex
-.venv/bin/par --data-root /tmp/par-v02-final smoke --worker codex --writable --authorize-workspace-write
-```
+1. Authenticated `/life` HTML and CSS/JS assets.
+2. Settings root form and actual read-only Scan button for a temporary Markdown book.
+3. Library display and newly populated graph participant selectors.
+4. Resource progress form twice: 90→100 and 100→110.
+5. Displayed 55% / 20 new pages and chart SVG.
+6. Synthetic concept + supplied fixture recording, actual hyperedge diamonds and
+   clickable evidence panel.
+7. Contextual suggestion, dismissal button and suppression on refresh.
+8. Semantic/reader unavailable notices and graph export.
+9. Original source file unchanged.
 
-Read-only failed run: `7e999bf1-09b7-4760-9baa-ea71809577ef`.
-Writable failed run: `ead6d729-12d7-4dfc-9fe7-4089c8bb49f7`.
-Both have authentication failure metadata, context artifacts and no fabricated
-response/verification. Test data lives outside tracked source; it is not a
-portable evidence archive and may not survive sandbox recreation.
+Stopped and **restarted the entire server process** against the same data root;
+queried HTTP state again: 20 newly read pages, 55%, graph edges and dismissal
+survived, with no duplicate recommendation. Re-ran the committed DOM smoke on a
+second fresh data root successfully.
 
-## Lifecycle evidence and exact guarantees
+A real Chromium visual test was attempted but **blocked**: Playwright's browser
+CDN download failed with TLS `ECONNRESET`. JSDOM is DOM/HTTP interaction evidence,
+not a rendered-browser/accessibility audit. No successful visual test is claimed.
+The reproducible optional smoke commands and native Windows manual checklist are
+in `docs/intellectual-life.md`.
 
-| Case | Implemented and tested without live credentials | Live evidence |
-|---|---|---|
-| Completed task survives restart | Existing subprocess CLI persistence plus reopened Store/API; new SDK-double result/checkpoint metadata | Blocked by auth |
-| Running cancellation | Runtime cancels real execution coroutine, adapter calls handle.interrupt, records acknowledgement/uncertainty, captures partial output | SDK cancellation not exercised with a model |
-| Interrupted resume | Keeps workspace/files, starts a new attempt, retains old artifacts; completed-turn/result checkpoint is collected without new model execution | Blocked by auth |
-| Conversation continuation | New request on persisted thread, read-only authorization; verifies same thread and new turn | Live test implemented; not reached here |
-| Auth/provider/sandbox/timeout failures | Distinct error_kind; none marked successful; raw provider messages withheld | Actual auth failure observed |
-| Retry/no overwrite | Explicit latest-attempt retry, original-worker check, bounded attempts; old artifacts immutable; unknown/active turns refuse replay | Exactly-once external side effects are NOT claimed |
-| Writable artifact verification | Valid/missing/invalid/boolean-type/changed-input cases, symlink refusal, bounded capture; zero generated test code | Writable smoke failed before model invocation |
+## Start the application
 
-Offline tests use explicitly named FakeSdk/MockWorker fixtures. They exercise
-public SDK-shaped contracts, not real provider/network behavior. Signature/enum
-checks also run against the actually installed SDK. SDK config keys were checked
-against the tagged upstream config schema linked in the audit.
-
-## Exact manual setup on the authenticated host
-
-Linux/macOS (from the checkout):
+Linux/macOS:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[codex,test]"
-.venv/bin/python -c "from codex_cli_bin import bundled_codex_path; import subprocess; raise SystemExit(subprocess.call([str(bundled_codex_path()), 'login']))"
-.venv/bin/par worker-ready --worker codex
-.venv/bin/par smoke --worker codex
-.venv/bin/par smoke --worker codex --writable --authorize-workspace-write
-PAR_LIVE_CODEX=1 .venv/bin/python -m pytest tests/test_codex.py -m live -q -rs
+.venv/bin/python -m pip install -e ".[books,test]"
+.venv/bin/par serve
 ```
 
-Official `codex login` is equivalent if the CLI is already on PATH. Login runs
-locally with the official client. Do not provide credentials in chat. Use the
-same OS user and CODEX_HOME for all commands. If configuration guard rejects
-external tools/permissions, use a dedicated official Codex home and log in there;
-do not copy auth files. No API key is required if the official client supports
-your existing authenticated subscription.
-
-Windows PowerShell (read-only; write sandbox is intentionally not enabled):
+Windows PowerShell/cmd:
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[codex,test]"
-.venv\Scripts\python.exe -c "from codex_cli_bin import bundled_codex_path; import subprocess; raise SystemExit(subprocess.call([str(bundled_codex_path()), 'login']))"
-.venv\Scripts\par.exe worker-ready --worker codex
-.venv\Scripts\par.exe smoke --worker codex
-$env:PAR_LIVE_CODEX = "1"
-.venv\Scripts\python.exe -m pytest tests/test_codex.py -m live -k "not writable" -q -rs
-Remove-Item Env:PAR_LIVE_CODEX
+.venv\Scripts\python.exe -m pip install -e ".[books,test]"
+.venv\Scripts\par.exe serve
 ```
 
-With an activated environment, exercise continuation/recovery:
+Open **http://127.0.0.1:8000/life**. Configure a directory under Settings, scan it,
+then open a resource. The existing runtime remains at `/`. Directory paths refer
+to the server host. No SQLite cloud-sync arrangement is implemented or required.
 
-```sh
-par continue COMPLETED_RUN_ID "What file did you produce? Do not use tools." --worker codex
-# Start a smoke, Ctrl+C while running; then obtain its ID from par status:
-par status
-par resume INTERRUPTED_RUN_ID --worker codex --acknowledge-uncertainty
-```
+## Supported / unsupported / unresolved
 
-Stop any server before offline writes. If using `--data-root PATH`, include it
-before the subcommand on every command. Use a root outside configured project
-ancestors. The read-only smoke requires exact `OMNIBUS_READY`; the writable smoke
-requires `status=completed`, `verification=passed`, a real thread/turn ID, and a
-saved summary artifact. Model prose alone is not acceptance.
+- Supported locally: EPUB, UTF-8 text/Markdown/HTML; PDF with `[books]`, including
+  page count and bounded early-page excerpts. No source originals edited/moved.
+- Unsupported: DRM/encrypted books, OCR, MOBI/AZW/DJVU/DOCX, audio/video decoding,
+  remote metadata/transcript acquisition, YouTube/media API integrations.
+- No real semantic enricher or reader integration was configured/tested. Structured
+  parsing is not semantic understanding. Manual concepts/relations/progress work.
+- Small-library scope: synchronous bounded parsing, some whole-table queries and
+  limited UI neighborhoods; no large-corpus performance or adversarial parser
+  sandbox claim. Limits are detailed in the guide. HTML currently yields one text
+  unit; EPUB uses spine sections, not reliable print chapters/pages.
+- Library metadata correction edits title/creators without rewriting file identity
+  or progress units. Unit completion does not implicitly move the parent cursor.
+- Concept merge/correction preserves evidence, but there is no general multi-master
+  conflict resolution, sophisticated preference learning or marginal-value model.
+- Graph exports carry provenance paths/excerpts, not book bytes, scan authorization
+  or external worker sessions. Configure roots separately on another machine.
+- Windows/macOS and Python 3.12/3.13 were not executed; manual instructions exist.
+- No workflow files are committed. No real model calls were made in this milestone.
 
-## Remaining blockers / best next action
-
-The objective of a **successfully executed real task remains unproven** until
-legitimate host authentication is available. Live sandbox containment,
-interruption and restart/resume also remain untested. Windows writable support
-is disabled, not faked. Backup excludes working directories and the external
-Codex session store; missing state fails closed. Regex redaction is not universal
-secret detection; do not submit credentials as user data.
-
-**Next action:** run the above commands on the user's authenticated host, inspect
-the immutable verification artifacts, and validate live cancellation/resume and
-outside-workspace write denial before granting any broader capability.
+**Next useful increment:** identify the user's actual reading application and
+implement/test its documented position/history adapter, keeping imported position
+assertions distinct from measured reading sessions. This removes manual progress
+friction without spending model allowance or pretending semantic discovery exists.

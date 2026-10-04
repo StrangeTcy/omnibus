@@ -67,3 +67,22 @@
   The built-in Python oracle checks saved bytes, not generated test code.
 - Restrict writable mode to Linux/macOS pending Windows validation. This is
   documented SDK write confinement, not an observed live isolation guarantee.
+
+## Intellectual Life amendments
+
+- Follow the final hypergraph spec in upstream `omnibus plans.txt`, not the earlier
+  Books-only proposal. Keep the task runtime and optional Codex routes intact.
+- Add schema migration 002 and relational membership rows; JSON payloads reuse the
+  existing Store. Nodes distinguish resources, concepts and bounded content units.
+- Structural parsing is not semantic extraction. Prefer short excerpts/locators,
+  explicit provenance and manual relations to fabricated model understanding.
+- Progress uses append-only boundary intervals, per-unit union calculations and
+  correction records; positions and estimates never invent daily reading.
+- Recommend only from confirmed evidence and explicit state. No title similarity
+  policy, external search, model call or implicit paid API. Sparse daily quota is
+  persistent; dismissals survive restart.
+- Add a second Jinja/vanilla-JS page and SVG incidence visualization; do not
+  replace the runtime journal or introduce a production frontend toolchain.
+- EPUB uses defusedxml plus stdlib ZIP/HTML; PDF parsing is optional via books extra.
+- Portable graph import is transactional with conflicts, not live DB file sync.
+- No workflow files are committed; local regression evidence replaces CI claims.

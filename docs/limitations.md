@@ -1,4 +1,11 @@
-# V0.2 limitations and security boundary
+# Limitations and security boundary
+
+The current Intellectual Life limitations, parser bounds, supported formats,
+missing semantic/reader integrations, export limits and UI bounds are in
+[intellectual-life.md](intellectual-life.md). That capability is deterministic and
+does not depend on the optional worker described below. No workflow is committed.
+
+## Optional worker milestone (retained historical limitations)
 
 ## Not live-proven in this environment
 
@@ -65,7 +72,7 @@ results and README for same-host login and reproduction commands.
 - UI displays existing run metadata/events/artifacts but has no new dedicated
   writable authorization/continuation wizard; use the documented CLI/API.
 - Only Linux Python 3.11 tests and a clean wheel installation were observed here.
-  Windows/macOS and Python 3.12/3.13 CI is configured, not observed. No browser
+  Windows/macOS and Python 3.12/3.13 have not been observed; no CI workflow is committed. No browser
   visual audit was performed. The Starlette/httpx deprecation warning remains.
 - Network access is loopback by default; remote token access still requires an
   externally managed private/TLS boundary. No public unauthenticated deployment.

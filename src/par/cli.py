@@ -50,6 +50,8 @@ def main():
     verification.add_argument('--approve', action='store_true')
     verification.add_argument('--seconds', type=float, default=30)
     verification.add_argument('argv', nargs=argparse.REMAINDER)
+    from . import life_cli
+    life_cli.configure(commands)
     args = parser.parse_args()
     try:
         config = Config.load()
@@ -83,7 +85,9 @@ def main():
             print(json.dumps({name: store.list(name) for name in ['tasks', 'runs', 'projects']}, indent=2))
             return
         with FileLock(str(config.root / 'runtime.lock'), timeout=0):
-            if args.command in {'smoke', 'resume', 'continue'}:
+            if args.command == 'life':
+                print(json.dumps(life_cli.run(store, args), indent=2))
+            elif args.command in {'smoke', 'resume', 'continue'}:
                 from .smoke import smoke
                 store.recover()
                 runtime = Runtime(store, worker_for(args.worker or config.worker))

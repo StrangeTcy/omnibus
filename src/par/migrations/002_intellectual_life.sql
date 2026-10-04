@@ -1,0 +1,12 @@
+CREATE TABLE nodes(id TEXT PRIMARY KEY, created TEXT NOT NULL, parent_id TEXT REFERENCES nodes(id) ON DELETE CASCADE, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE edges(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE edge_members(edge_id TEXT NOT NULL REFERENCES edges(id) ON DELETE CASCADE, node_id TEXT NOT NULL REFERENCES nodes(id), role TEXT NOT NULL, PRIMARY KEY(edge_id,node_id,role));
+CREATE INDEX member_node ON edge_members(node_id);
+CREATE TABLE activity(id TEXT PRIMARY KEY, created TEXT NOT NULL, node_id TEXT NOT NULL REFERENCES nodes(id), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TRIGGER activity_no_update BEFORE UPDATE ON activity BEGIN SELECT RAISE(ABORT,'append only'); END;
+CREATE TRIGGER activity_no_delete BEFORE DELETE ON activity BEGIN SELECT RAISE(ABORT,'append only'); END;
+CREATE TABLE preferences(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE recommendations(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE library_roots(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE knowledge_settings(name TEXT PRIMARY KEY, data TEXT NOT NULL CHECK(json_valid(data)));
+PRAGMA user_version=2;

@@ -1,13 +1,14 @@
-# V0.2 checklist
-- [x] Preserve V0.1 core; audit and record defects before modifying code
-- [x] Inspect installed SDK APIs, modes, generated schemas and tagged config docs
-- [x] Explicit real-only readiness and read-only/writable smoke commands
-- [x] Typed safe failures; persisted thread/turn/session/model/usage metadata
-- [x] SDK interrupt requests; immutable result checkpoints; stable task workspace
-- [x] Explicit conversation continuation and backend-turn reconciliation
-- [x] Authorized fixture file task and independent missing/invalid-output verifier
-- [x] Offline lifecycle/failure tests plus separately invoked live integration tests
-- [x] Attempt real smokes/tests; report authentication failures, no substitute mock
-- [ ] Successful authenticated real model task — unavailable host authentication
-- [ ] Live sandbox enforcement and live interrupt/restart/resume validation
-- [ ] Observe remote Windows/macOS CI
+# Intellectual Life checklist
+- [x] Pull and read upstream omnibus plans; preserve runtime and audit first
+- [x] Remove workflow from unpushed history; do not commit workflows
+- [x] Migration 002 + explicit down script; n-ary members and provenance
+- [x] Read-only EPUB/text/Markdown/HTML scanner; optional PDF
+- [x] Manual progress, corrections/revisits, dated chart calculations
+- [x] Library/Today/detail/graph/settings UI and CLI
+- [x] Versioned graph import/export, conflict/reference checks
+- [x] Evidence-based sparse recommendations and explicit feedback
+- [x] Semantic/reader seams with honest unavailable state
+- [x] Existing and new tests; live HTTP/DOM smoke; process restart
+- [ ] Full visual Chromium test (browser download failed)
+- [ ] Native Windows/macOS manual smoke (documented, not run)
+- [ ] Real semantic backend / reader connector (not configured)
