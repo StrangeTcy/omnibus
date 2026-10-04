@@ -86,7 +86,10 @@ def main():
             return
         with FileLock(str(config.root / 'runtime.lock'), timeout=0):
             if args.command == 'life':
-                print(json.dumps(life_cli.run(store, args), indent=2))
+                result = life_cli.run(store, args)
+                print(json.dumps(result, indent=2))
+                if (args.life_command == 'analyze' and result['status'] != 'completed') or (args.life_command in {'model', 'browser'} and args.check and not result['available']):
+                    raise SystemExit(1)
             elif args.command in {'smoke', 'resume', 'continue'}:
                 from .smoke import smoke
                 store.recover()

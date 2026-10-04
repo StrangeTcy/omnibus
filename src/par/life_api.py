@@ -8,7 +8,8 @@ from .knowledge import Knowledge
 from .library import Library
 from .recommendations import Recommender
 from .graph_io import export_graph, import_graph
-from .enrichment import UnavailableEnricher
+from .semantic import SemanticService, AnalysisRequest, TextMaterial
+from .local_inference import LocalModelConfig
 
 class Root(Payload):
     path: str = Field(min_length=1, max_length=4000)
@@ -23,6 +24,7 @@ class Merge(Payload):
 
 def install(app, store, templates, csrf):
     graph, library, recommendations = Knowledge(store), Library(store), Recommender(store)
+    semantic = SemanticService(store, app.state.runtime)
     router = APIRouter(prefix='/api/life')
 
     @app.get('/life', response_class=HTMLResponse)
@@ -36,7 +38,35 @@ def install(app, store, templates, csrf):
                 'preferences': store.list('preferences'), 'roots': store.list('library_roots'),
                 'progress': {n['id']: graph.progress(n['id']) for n in nodes if n['node_type'] in {'resource', 'unit'}},
                 'recommendations': recommendations.generate(), 'settings': graph.settings(),
-                'semantic': UnavailableEnricher().health(), 'reader': {'available': False, 'diagnostic': 'No reader integration configured. Record manual progress or imported positions explicitly.'}}
+                'semantic': semantic.availability(), 'analyses': semantic.analyses(), 'reader': {'available': False, 'diagnostic': 'No reader integration configured. Record manual progress or imported positions explicitly.'}}
+
+    @router.put('/semantic/config')
+    def semantic_config(body: LocalModelConfig):
+        return semantic.config(body).model_dump()
+
+    @router.post('/semantic/health')
+    async def semantic_health():
+        return await semantic.ready()
+
+    @router.post('/semantic/text')
+    def semantic_text(body: TextMaterial):
+        return semantic.import_text(body)
+
+    @router.post('/semantic/analyze')
+    async def semantic_analyze(body: AnalysisRequest):
+        obj = semantic.submit(body)
+        semantic.runtime.schedule(obj['run_id'])
+        return obj
+
+    @router.post('/semantic/{id}/cancel')
+    def semantic_cancel(id: str):
+        if store.get('runs', id)['worker'] not in {'semantic-analysis', 'ollama-semantic'}:
+            raise ValueError('Not a semantic analysis')
+        return semantic.runtime.cancel(id)
+
+    @router.post('/semantic/{id}/review')
+    def semantic_review(id: str, body: Decision):
+        return semantic.review(id, body.status)
 
     @router.post('/roots')
     def root(body: Root):

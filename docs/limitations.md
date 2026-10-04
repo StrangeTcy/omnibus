@@ -1,3 +1,8 @@
+> **Update:** the prior unavailable semantic seam now has an executable local Ollama path.
+> See [current setup, tests and remaining blockers](local-semantic-analysis.md).
+> Live-model acceptance and autonomous discovery remain incomplete; historical
+> no-backend descriptions below refer to the earlier manual milestone.
+
 # Limitations and security boundary
 
 The current Intellectual Life limitations, parser bounds, supported formats,

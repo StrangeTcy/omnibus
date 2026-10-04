@@ -46,12 +46,13 @@ def html_text(data):
     return ''.join(p.title).strip(), ''.join(p.parts)
 
 
-def unit(title, locator, text='', ordinal=1):
+def unit(title, locator, text='', ordinal=1, text_limit=None):
     return {'title': title[:500] or locator, 'locator': locator, 'ordinal': ordinal,
-            'excerpt': re.sub(r'\s+', ' ', text).strip()[:600], 'sha256': hashlib.sha256(text.encode()).hexdigest()}
+            'excerpt': re.sub(r'\s+', ' ', text).strip()[:600], 'sha256': hashlib.sha256(text.encode()).hexdigest(),
+            **({'analysis_text': text[:text_limit], 'truncated': len(text) > text_limit} if text_limit else {})}
 
 
-def parse_file(path, content):
+def parse_file(path, content, text_limit=None):
     ext = path.suffix.lower()
     result = {'title': path.stem, 'creators': [], 'format': ext[1:], 'measure': 'percent', 'total': 100,
               'units': [], 'metadata': {'title_source': 'filename (not semantic analysis)'}}
@@ -68,9 +69,9 @@ def parse_file(path, content):
             result.update(title=headings[0][1][:500], metadata={'title_source': 'Markdown heading'})
             for i, h in enumerate(headings[:500]):
                 end = headings[i+1].start() if i+1 < len(headings) else len(text)
-                result['units'].append(unit(h[1], f'char:{h.start()}:{end}', text[h.end():end], i+1))
+                result['units'].append(unit(h[1], f'char:{h.start()}:{end}', text[h.end():end], i+1, text_limit))
         else:
-            result['units'] = [unit(result['title'], 'text:0', text)]
+            result['units'] = [unit(result['title'], 'text:0', text, text_limit=text_limit)]
     elif ext == '.epub':
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             if len(archive.infolist()) > 2000 or sum(i.file_size for i in archive.infolist()) > 30*1024*1024:
@@ -99,7 +100,7 @@ def parse_file(path, content):
                 if len(raw) > MAX_TEXT:
                     raise ValueError('EPUB chapter exceeds text limit')
                 title, text = html_text(raw.decode('utf-8-sig'))
-                result['units'].append(unit(title or f'Section {i+1}', name, text, i+1))
+                result['units'].append(unit(title or f'Section {i+1}', name, text, i+1, text_limit))
             if not result['units']:
                 raise ValueError('EPUB has no readable spine units')
             result.update(measure='chapters', total=len(result['units']))
@@ -119,7 +120,7 @@ def parse_file(path, content):
         result['metadata'] = {'title_source': 'PDF metadata' if metadata.get('/Title') else 'filename', 'text_excerpt_pages': min(count, 100)}
         for i, page in enumerate(reader.pages):
             text = (page.extract_text() or '')[:MAX_TEXT] if i < 100 else ''
-            result['units'].append(unit(f'Page {i+1}', f'page:{i+1}', text, i+1))
+            result['units'].append(unit(f'Page {i+1}', f'page:{i+1}', text, i+1, text_limit))
     else:
         raise ValueError('Unsupported format')
     return result

@@ -24,6 +24,7 @@ class Invocation:
     thread_id: str | None = None
     resume_turn_id: str | None = None
     execution_mode: str = 'read_only'
+    run_id: str | None = None
 
 class Result(BaseModel):
     response: str = Field(max_length=100000)

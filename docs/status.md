@@ -1,3 +1,46 @@
+# Browser-account correction — 2026-10-04
+
+User clarified the intended backend: their signed-in ChatGPT/Claude/DeepSeek
+websites, controlled by Playwright, not a required local model. Added an optional
+CDP transport for current installed Chrome/Chromium, provider-specific disclosure
+consent, dedicated-profile confirmation, durable submission markers and blocked
+uncertain replay. UI/CLI/API select browser accounts. Website responses use the
+same source quotation validation and provisional graph pipeline.
+
+**Experimental, not live accepted:** no authenticated browser/provider session is
+available here. Preset DOM selectors, Google login behavior and real completion
+quality remain unverified. No credentials were requested, imported or tested.
+The browser-account requirement is recorded in [browser-accounts.md](browser-accounts.md),
+including Chrome 136 profile restrictions, manual sign-in and native setup steps.
+
+Current suite: **85 passed, 3 skipped** with the optional browser extra installed;
+15 browser protocol/consent/recovery cases are synthetic, not live-provider tests.
+Python compileall and JS syntax checks pass. Historical milestones follow below.
+
+---
+
+# Current correction — 2026-10-04
+
+The previous milestone below was insufficient for the requested intelligent assistant.
+An executable local Ollama semantic path is now implemented (API/CLI/UI), not just
+an adapter protocol. It extracts source-quoted provisional concepts/relations and
+connects reviewed coverage to progress-based recommendations. Read
+[the implementation and acceptance limits](local-semantic-analysis.md).
+
+**Not complete:** no live inference has run here, and external content discovery,
+whole-library reconciliation and reader integration are still absent. Actual CLI
+readiness failed with `model_unavailable`; no backend/weights are installed and
+model-download probes failed TLS EOF. Protocol tests must not be read as model-quality
+or real-book evidence. The historical counts below describe the prior environment.
+
+Current verification: **70 passed, 3 skipped** (15 new semantic protocol/validation
+cases); Python compileall and JavaScript syntax checks passed. The three skips
+are the optional SDK contract and two opt-in live Codex tests in this environment.
+The actual local semantic readiness CLI returned `model_unavailable`, exit **1**.
+No new visual browser or real-model quality test is claimed.
+
+---
+
 # Omnibus — Intellectual Life milestone status (2026-10-04)
 
 ## Outcome

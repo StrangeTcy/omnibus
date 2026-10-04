@@ -86,3 +86,15 @@
 - EPUB uses defusedxml plus stdlib ZIP/HTML; PDF parsing is optional via books extra.
 - Portable graph import is transactional with conflicts, not live DB file sync.
 - No workflow files are committed; local regression evidence replaces CI claims.
+
+## Browser-account backend correction
+
+- The intended semantic backend is the user's website accounts controlled through
+  Playwright, not required Ollama or implicitly billable API credentials.
+- Browser sessions belong on the user's host; never import credentials into Arena.
+- Attach to a dedicated current Chrome/Chromium profile via loopback CDP. Manual
+  sign-in is separate; no claim that updating Chromium cures Google's automation
+  restrictions, and no attempts to bypass MFA/CAPTCHA or provider blocks.
+- External source disclosure requires exact-provider approval on each job.
+- Journal before text entry; uncertain browser submissions never auto-replay.
+- Provider DOM presets are experimental until authenticated live acceptance.

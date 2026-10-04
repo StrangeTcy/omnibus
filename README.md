@@ -11,6 +11,19 @@ Scanning, progress, graph queries and recommendations from confirmed relationshi
 make **zero model calls**. The existing task runtime and optional worker adapters
 remain available, but Codex is not required for Intellectual Life.
 
+## Browser-account backend — intended integration
+
+Omnibus is intended to use your signed-in **ChatGPT / Claude / DeepSeek website
+accounts through Playwright**. An optional browser transport now connects those
+accounts to the source-analysis pipeline; Ollama is an optional alternative,
+not a prerequisite. Provider adapters are **experimental and not authenticated-
+live-tested here**. The full autonomous intellectual assistant is still incomplete.
+
+Use current installed Chrome with a dedicated profile. Sign in manually before
+attaching automation: Google may reject automated browsers even when up to date.
+No credential sharing with Arena, CAPTCHA bypass or silent paid API fallback.
+See [browser account setup, security and current limits](docs/browser-accounts.md).
+
 ## Intellectual Life — start here
 
 Linux/macOS:
@@ -45,7 +58,7 @@ links. Confirmed coverage, current-position connections and explicit reactions
 can produce a few evidence-backed suggestions; dismissal suppresses repeats.
 Titles alone never establish semantic equivalence.
 
-**No semantic model backend or reading-app integration is configured.** Manual
+**No semantic model or reading-app integration is configured by default.** Manual
 progress, concept entry, relationship correction and supplied URL linking are
 complete workflows. There is no claimed YouTube/transcript connector, automatic
 semantic discovery or inspection of your actual books from this sandbox.

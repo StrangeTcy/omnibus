@@ -39,7 +39,7 @@ class Recommender:
                         triggers[id] = pp['history'][-1]['id']
         # Only confirmed covers edges count, and only already consumed source units
         # support the claim that the user has encountered those concepts.
-        covered, coverage, concept_edges = set(), {}, {}
+        covered, coverage, concept_edges, resource_sources = set(), {}, {}, {}
         for e in edges:
             if e['type'] != 'covers':
                 continue
@@ -48,6 +48,7 @@ class Recommender:
                 if m['role'] == 'source':
                     source = m['node_id']
                     resource = nodes[source]['parent_id'] if nodes[source]['node_type'] == 'unit' else source
+                    resource_sources.setdefault(resource, set()).add(source)
                     coverage.setdefault(resource, set()).update(concepts)
                     concept_edges.setdefault(resource, set()).add(e['id'])
                     if source in consumed:
@@ -64,24 +65,26 @@ class Recommender:
                               'basis': 'deterministic policy over confirmed assertions; not independently verified semantic equivalence'}
         consumed_edges = {e['id'] for e in edges if e['type'] == 'covers' and any(m['role'] == 'source' and m['node_id'] in consumed for m in e['members'])}
         for resource, concepts in coverage.items():
+            if resource_sources[resource] <= consumed:
+                continue
             overlap = covered & concepts
             novel = concepts-covered
             if overlap:
-                add(resource, 'This resource covers concepts in material you marked completed. '+('Additional concepts are represented in the graph.' if novel else 'No additional concepts are represented; it may be skippable unless you want reinforcement.'), concept_edges[resource] | consumed_edges,
+                add(resource, 'This resource covers concepts in material you marked completed. '+('Additional concepts are represented in the graph.' if novel else 'No additional concepts are represented in the analyzed evidence; this does not establish that the whole resource adds nothing.'), concept_edges[resource] | consumed_edges,
                     overlap, novel, [e['id'] for e in activity if e['node_id'] in consumed], score=2 if novel else .5)
         # Contextual cross-domain path: current section --covers--> motif
         # and recording --illustrates--> the same motif.
         for e in edges:
             if e['type'] != 'illustrates':
                 continue
-            recordings = [m['node_id'] for m in e['members'] if m['role'] in {'resource', 'example'} and m['node_id'] in resources]
+            recordings = {nodes[m['node_id']]['parent_id'] if nodes[m['node_id']]['node_type'] == 'unit' else m['node_id'] for m in e['members'] if m['role'] in {'resource', 'example'}}
             motifs = {m['node_id'] for m in e['members'] if m['role'] in {'concept', 'motif'}}
             for cover in edges:
                 sources = {m['node_id'] for m in cover['members'] if m['role'] == 'source'}
                 concepts = {m['node_id'] for m in cover['members'] if m['role'] == 'concept'}
                 if cover['type'] == 'covers' and sources & current and concepts & motifs:
                     for recording in recordings:
-                        if resources[recording]['url']:
+                        if recording in resources and resources[recording]['url']:
                             add(recording, 'A concept at your current reading position is illustrated by this linked resource.', [e['id'], cover['id']], trigger_ids=[triggers[n] for n in sources & current], score=3)
         # Positive reaction is explicit; one ignore never becomes a dislike.
         latest_reactions = {}

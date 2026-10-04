@@ -255,12 +255,12 @@ class Runtime:
                     safe_context['_thread_callback'] = lambda tid: self.store.update('runs', run_id, {'thread_id': tid})
                     safe_context['_control_callback'] = lambda data: self.control(run_id, data)
                     safe_context['_resume_without_turn'] = bool(run.get('previous_run_id') and run.get('attempt', 1) > 1 and not run.get('resume_turn_id') and not run.get('verification_repair'))
-                    invocation = Invocation(redact(task['goal']), task['constraints'], task['completion_criteria'], safe_context, attachments, workspace, budget, run.get('thread_id'), run.get('resume_turn_id'), task.get('execution_mode', 'read_only'))
+                    invocation = Invocation(redact(task['goal']), task['constraints'], task['completion_criteria'], safe_context, attachments, workspace, budget, run.get('thread_id'), run.get('resume_turn_id'), task.get('execution_mode', 'read_only'), run_id=run_id)
                     if run.get('worker_checkpoint'):
                         result = Result.model_validate_json(self.artifacts.read(run['worker_checkpoint']))
                         self.store.event(run_id, 'worker_result_recovered', {'checkpoint': run['worker_checkpoint']})
                     else:
-                        self.store.event(run_id, 'worker_invoked', {'worker': self.worker.descriptor.id, 'tool_boundary': 'SDK-owned sub-loop' if self.worker.descriptor.id == 'codex' else 'deterministic mock'})
+                        self.store.event(run_id, 'worker_invoked', {'worker': self.worker.descriptor.id, 'tool_boundary': 'SDK-owned sub-loop' if self.worker.descriptor.id == 'codex' else ('explicitly selected semantic backend' if self.worker.descriptor.id in {'semantic-analysis', 'ollama-semantic'} else 'deterministic mock')})
                         result = await self.worker.run(invocation)
                         checkpoint = self.artifacts.write(json.dumps(redact_data(result.model_dump())).encode(), kind='worker-checkpoint', mime='application/json', run_id=run_id, provenance=run_id)
                         self.store.update('runs', run_id, {'worker_checkpoint': checkpoint['id']})

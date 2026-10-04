@@ -6,12 +6,36 @@ from .knowledge_models import Node, Edge, Activity, Feedback
 from .library import Library
 from .recommendations import Recommender
 from .graph_io import export_graph, import_graph
-from .enrichment import UnavailableEnricher
+import asyncio
+from .semantic import SemanticService, AnalysisRequest, TextMaterial
+from .local_inference import LocalModelConfig
 
 
 def configure(commands):
-    parser = commands.add_parser('life', help='Local library, reading progress, idea hypergraph and recommendations (no model)')
+    parser = commands.add_parser('life', help='Local library, reading progress, idea hypergraph and recommendations (browser accounts or optional local inference)')
     subs = parser.add_subparsers(dest='life_command', required=True)
+    model = subs.add_parser('model', help='Configure/check an installed local Ollama model')
+    model.add_argument('--model')
+    model.add_argument('--endpoint', default='http://127.0.0.1:11434')
+    model.add_argument('--disable', action='store_true')
+    model.add_argument('--check', action='store_true')
+    browser = subs.add_parser('browser', help='Configure an experimental Playwright browser-account backend')
+    browser.add_argument('--provider', choices=['chatgpt', 'claude', 'deepseek'])
+    browser.add_argument('--endpoint', default='http://127.0.0.1:9222')
+    browser.add_argument('--confirm-dedicated-profile', action='store_true')
+    browser.add_argument('--check', action='store_true')
+    text = subs.add_parser('import-text', help='Import a supplied transcript/text, never fetch its URL')
+    text.add_argument('file', type=Path)
+    text.add_argument('--title', required=True)
+    text.add_argument('--url')
+    analysis = subs.add_parser('analyze', help='Analyze selected units using the explicitly configured backend')
+    analysis.add_argument('ids', nargs='+')
+    analysis.add_argument('--authorize-local-inference', action='store_true')
+    analysis.add_argument('--authorize-provider', choices=['chatgpt', 'claude', 'deepseek'])
+    review = subs.add_parser('review-analysis', help='Confirm/reject generated relations after reviewing source quotations')
+    review.add_argument('id')
+    review.add_argument('decision', choices=['confirmed', 'rejected'])
+    subs.add_parser('analyses', help='Inspect persisted semantic runs and diagnostics')
     root = subs.add_parser('root', help='Authorize a local read-only library directory')
     root.add_argument('path')
     scan = subs.add_parser('scan', help='Scan a configured root ID (never edits originals)')
@@ -84,6 +108,27 @@ def read_json(path):
 def run(store, args):
     graph, library = Knowledge(store), Library(store)
     command = args.life_command
+    semantic = SemanticService(store)
+    if command == 'model':
+        if args.model or args.disable:
+            semantic.config(LocalModelConfig(backend='disabled' if args.disable else 'ollama', model=args.model or '', endpoint=args.endpoint))
+        return asyncio.run(semantic.ready()) if args.check else semantic.availability()
+    if command == 'browser':
+        if args.provider:
+            semantic.config(LocalModelConfig(backend='browser', browser_provider=args.provider, browser_endpoint=args.endpoint, dedicated_browser_profile=args.confirm_dedicated_profile))
+        return asyncio.run(semantic.ready()) if args.check else semantic.availability()
+    if command == 'import-text':
+        if args.file.stat().st_size > 240000:
+            raise ValueError('Text import exceeds 240000 bytes')
+        return semantic.import_text(TextMaterial(title=args.title, text=args.file.read_text(encoding='utf-8'), url=args.url))
+    if command == 'analyze':
+        obj = semantic.submit(AnalysisRequest(source_ids=args.ids, authorize_local_inference=args.authorize_local_inference, authorize_provider=args.authorize_provider))
+        asyncio.run(semantic.runtime.execute(obj['run_id']))
+        return store.get('runs', obj['run_id'])
+    if command == 'review-analysis':
+        return semantic.review(args.id, args.decision)
+    if command == 'analyses':
+        return semantic.analyses()
     if command == 'root':
         return library.configure(args.path)
     if command == 'scan':
@@ -138,5 +183,5 @@ def run(store, args):
             value['daily_limit'] = args.daily_limit
         if args.disable or args.enable:
             value['recommendations_enabled'] = args.enable
-        return {'settings': graph.settings(value), 'semantic': UnavailableEnricher().health(), 'reader': 'No reader adapter configured; manual updates are supported'}
+        return {'settings': graph.settings(value), 'semantic': semantic.availability(), 'reader': 'No reader adapter configured; manual updates are supported'}
     raise ValueError('Unknown Intellectual Life command')

@@ -11,4 +11,15 @@
 - [x] Existing and new tests; live HTTP/DOM smoke; process restart
 - [ ] Full visual Chromium test (browser download failed)
 - [ ] Native Windows/macOS manual smoke (documented, not run)
-- [ ] Real semantic backend / reader connector (not configured)
+- [x] Executable local Ollama semantic path, API/CLI/UI, bounded source quotes and proposed graph
+- [ ] Real-model end-to-end acceptance (no backend/weights available here)
+- [ ] External discovery, cross-batch concept reconciliation, reader connector
+
+## Browser accounts correction
+
+- [x] Optional Playwright/CDP website transport, UI/CLI/API provider selection
+- [x] Explicit provider-specific source disclosure approval
+- [x] Manual login boundary, loopback CDP validation and uncertain-send replay guard
+- [x] Document current Chrome / dedicated profile / Google authorization limitations
+- [ ] Authenticated ChatGPT / Claude / DeepSeek live acceptance on the user's host
+- [ ] Real browser-provider analysis of actual book/transcript material

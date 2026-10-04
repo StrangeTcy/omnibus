@@ -29,3 +29,41 @@ semantic and reader interfaces with an honest unavailable production state →
 fixtures/regression/manual server smoke and accurate docs. No workflows will be
 committed. The unpushed workflow-containing commit was amended before merging the
 new upstream plan; the workflow path is now ignored, not in branch history.
+
+## Semantic correction review — 2026-10-04
+
+Identified gap: the shipped `UnavailableEnricher` plus manual graph and deterministic
+rules did not implement the user's requested semantic intelligence. This was
+explicitly acknowledged before the correction, but this persisted audit addendum
+was written during implementation, not before the first source edit.
+
+Reuse the actual runtime lifecycle/worker interface (optional run_id added),
+artifacts and serial execution gate; no new database migration or scheduler.
+Add explicit local Ollama configuration, actual structured chat requests, bounded
+source snapshots and quotation validation, atomic proposed graph installation,
+review and existing recommendation integration. No mock substitution or model
+installation by the application. Source scanning itself remains inference-free.
+
+Acceptance gap is concrete: no local model daemon/weights, download TLS failures,
+no live model output. Tests are labeled protocol simulations. Do not relabel this
+as completion of the full intellectual assistant. See local-semantic-analysis.md.
+
+## Browser-account correction audit (before implementation)
+
+The user's intended backend is their signed-in ChatGPT/Claude/DeepSeek website
+accounts, not a required local model or API subscription. Current defects: Ollama
+is the only semantic client; consent describes local-only processing; worker and
+provenance labels assume Ollama; there is no browser delivery uncertainty journal.
+Add an optional Playwright/CDP browser transport, explicit provider-disclosure
+consent, manual login boundary and durable pre-send marker. No automatic retry
+of a possibly sent browser prompt, provider switching, account extraction or
+security-challenge bypass. Keep the existing inference/quotation/review pipeline.
+
+Verified official docs: Chrome 136+ ignores remote-debugging switches for its
+normal/default data directory; use a dedicated non-default profile. Google says
+software-controlled browsers can be rejected even when current, so “update
+Chromium” is not a guaranteed sign-in fix. Sign in manually with current installed
+Chrome before attaching automation; stop if rejected. Playwright connect_over_cdp
+supports Chromium-based browsers with lower fidelity than its native protocol.
+Provider DOM selectors and authenticated behavior cannot be verified here without
+the user's host/session; mark adapters experimental, not live-tested integrations.
