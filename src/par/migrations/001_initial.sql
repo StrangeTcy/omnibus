@@ -1,0 +1,13 @@
+CREATE TABLE projects(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE tasks(id TEXT PRIMARY KEY, created TEXT NOT NULL, project_id TEXT REFERENCES projects(id), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE requests(id TEXT PRIMARY KEY, created TEXT NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(id), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE runs(id TEXT PRIMARY KEY, created TEXT NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(id), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE artifacts(id TEXT PRIMARY KEY, created TEXT NOT NULL, run_id TEXT REFERENCES runs(id), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE memories(id TEXT PRIMARY KEY, created TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE dependencies(task_id TEXT REFERENCES tasks(id), depends_on TEXT REFERENCES tasks(id), PRIMARY KEY(task_id,depends_on), CHECK(task_id != depends_on));
+CREATE TABLE events(seq INTEGER PRIMARY KEY AUTOINCREMENT, created TEXT NOT NULL, entity TEXT NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TRIGGER events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT, 'append only'); END;
+CREATE TRIGGER events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT, 'append only'); END;
+CREATE INDEX run_task ON runs(task_id);
+CREATE INDEX event_entity ON events(entity);
+PRAGMA user_version=1;

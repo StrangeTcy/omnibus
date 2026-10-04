@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-agent-runtime"
+version = "0.2.0"
+description = "Local-first serial personal agent runtime"
+requires-python = ">=3.11,<3.14"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "jinja2>=3.1.6,<4", "python-multipart>=0.0.20,<1", "platformdirs>=4,<5", "filelock>=3.16,<4", "pydantic>=2.9,<3"]
+
+[project.optional-dependencies]
+codex = ["openai-codex==0.160.0"]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[project.scripts]
+par = "par.cli:main"
+
+[tool.setuptools.package-data]
+par = ["templates/*.html", "migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: opt-in authenticated Codex integration"]
