@@ -19,6 +19,8 @@ def create_app(config=None, worker=None):
     config = config or Config.load()
     store = Store(config.root)
     runtime = Runtime(store, worker or worker_for(config.worker))
+    from .collections import Collections
+    collections = Collections(store, runtime)
     csrf = secrets.token_urlsafe(32)
     token = os.environ.get('PAR_ACCESS_TOKEN', '')
     if token and len(token) < 32:
@@ -32,14 +34,17 @@ def create_app(config=None, worker=None):
         except Timeout as exc:
             raise RuntimeError('Another authoritative runtime is using this data root') from exc
         store.recover()
+        collections.recover()
         try:
             yield
         finally:
+            await collections.shutdown()
             await runtime.shutdown()
             lock.release()
 
     app = FastAPI(title='Personal Agent Runtime', lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.runtime = runtime
+    app.state.collections = collections
     templates = Jinja2Templates(directory=str(Path(__file__).parent / 'templates'))
 
     @app.middleware('http')
@@ -89,6 +94,10 @@ def create_app(config=None, worker=None):
 
     @app.get('/', response_class=HTMLResponse)
     async def home(request: Request):
+        return templates.TemplateResponse(request=request, name='life.html', context={'csrf': csrf})
+
+    @app.get('/runtime', response_class=HTMLResponse)
+    async def legacy_runtime(request: Request):
         return templates.TemplateResponse(request=request, name='index.html', context={'csrf': csrf, 'worker': runtime.worker.descriptor.id})
 
     @app.get('/api/session')
@@ -185,4 +194,6 @@ def create_app(config=None, worker=None):
     from fastapi.staticfiles import StaticFiles
     app.mount('/static', StaticFiles(directory=str(Path(__file__).parent / 'static')), name='static')
     install(app, store, templates, csrf)
+    from .collection_api import install as install_collections
+    install_collections(app, collections)
     return app

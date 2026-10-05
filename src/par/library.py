@@ -52,7 +52,7 @@ def unit(title, locator, text='', ordinal=1, text_limit=None):
             **({'analysis_text': text[:text_limit], 'truncated': len(text) > text_limit} if text_limit else {})}
 
 
-def parse_file(path, content, text_limit=None):
+def parse_file(path, content, text_limit=None, full_text=False):
     ext = path.suffix.lower()
     result = {'title': path.stem, 'creators': [], 'format': ext[1:], 'measure': 'percent', 'total': 100,
               'units': [], 'metadata': {'title_source': 'filename (not semantic analysis)'}}
@@ -65,11 +65,15 @@ def parse_file(path, content, text_limit=None):
             if title:
                 result.update(title=title[:500], metadata={'title_source': 'HTML title'})
         headings = list(re.finditer(r'^#{1,6}\s+(.+)$', text, re.M)) if ext in {'.md', '.markdown'} else []
+        if full_text and len(headings) > 500:
+            raise ValueError('Full extraction refuses more than 500 Markdown sections; no partial reading claimed')
         if headings:
             result.update(title=headings[0][1][:500], metadata={'title_source': 'Markdown heading'})
             for i, h in enumerate(headings[:500]):
                 end = headings[i+1].start() if i+1 < len(headings) else len(text)
-                result['units'].append(unit(h[1], f'char:{h.start()}:{end}', text[h.end():end], i+1, text_limit))
+                start = (0 if i == 0 else h.start()) if full_text else h.end()
+                locator_start = start if full_text else h.start()
+                result['units'].append(unit(h[1], f'char:{locator_start}:{end}', text[start:end], i+1, text_limit))
         else:
             result['units'] = [unit(result['title'], 'text:0', text, text_limit=text_limit)]
     elif ext == '.epub':
@@ -88,7 +92,10 @@ def parse_file(path, content, text_limit=None):
             result['creators'] = [e.text[:500] for e in package.iter() if e.tag.endswith('}creator') and e.text][:30]
             result['metadata']['title_source'] = 'EPUB embedded metadata' if titles else 'filename'
             manifest = {e.attrib.get('id'): e.attrib.get('href') for e in package.iter() if e.tag.endswith('}item')}
-            spine = [e.attrib['idref'] for e in package.iter() if e.tag.endswith('}itemref')][:1000]
+            spine = [e.attrib['idref'] for e in package.iter() if e.tag.endswith('}itemref')]
+            if full_text and len(spine) > 1000:
+                raise ValueError('Full extraction refuses more than 1000 EPUB sections; no partial reading claimed')
+            spine = spine[:1000]
             for i, ref in enumerate(spine):
                 href = manifest[ref]
                 if not href or ':' in href or href.startswith('/'):
@@ -118,11 +125,20 @@ def parse_file(path, content, text_limit=None):
         metadata = reader.metadata or {}
         result.update(title=str(metadata.get('/Title') or path.stem)[:500], creators=[str(metadata['/Author'])[:500]] if metadata.get('/Author') else [], measure='pages', total=count)
         result['metadata'] = {'title_source': 'PDF metadata' if metadata.get('/Title') else 'filename', 'text_excerpt_pages': min(count, 100)}
+        extracted_characters = 0
         for i, page in enumerate(reader.pages):
-            text = (page.extract_text() or '')[:MAX_TEXT] if i < 100 else ''
+            text = (page.extract_text() or '') if full_text or i < 100 else ''
+            if full_text and len(text) > MAX_TEXT:
+                raise ValueError('PDF page exceeds full extraction limit; no partial reading claimed')
+            text = text[:MAX_TEXT]
+            extracted_characters += len(text)
+            if full_text and extracted_characters > 20*1024*1024:
+                raise ValueError('Full PDF text exceeds 20 MiB; no partial reading claimed')
             result['units'].append(unit(f'Page {i+1}', f'page:{i+1}', text, i+1, text_limit))
     else:
         raise ValueError('Unsupported format')
+    if full_text and sum(len(u.get('analysis_text', '')) for u in result['units']) > 20*1024*1024:
+        raise ValueError('Extracted book exceeds 20 MiB text limit; no partial reading claimed')
     return result
 
 

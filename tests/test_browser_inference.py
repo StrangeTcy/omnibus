@@ -203,3 +203,18 @@ def test_composer_without_account_control_is_not_session_acceptance(monkeypatch)
     with pytest.raises(WorkerFailure, match='account control'):
         asyncio.run(client.generate([], {}))
     assert stages == ['browser_reachable'] and not page.prompt and not page.submitted
+
+
+def test_collection_response_is_durable_before_owned_tab_closes(monkeypatch):
+    page=Page();install_fake_browser(monkeypatch,page)
+    order=[]
+    def journal(data):page.journalled=True
+    def captured(text,metadata):
+        assert json.loads(text)['concepts']==[]
+        order.append('captured')
+    async def close():
+        assert order==['captured'];order.append('closed')
+    page.close=close
+    client=BrowserChat(config(),journal);client.capture_response=captured
+    asyncio.run(client.generate([],{}))
+    assert order==['captured','closed']

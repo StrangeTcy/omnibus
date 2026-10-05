@@ -156,7 +156,9 @@ sending the same prompt again, even with the runtime's retry acknowledgement.
 Inspect the browser tab and explicitly create a new approved analysis if appropriate.
 There is not yet an automated “reattach and reconcile this unfinished chat” workflow.
 
-The new tab is left open for inspection. The code disconnects its Playwright client;
+In legacy single-analysis mode the new tab is left open for inspection. In collection
+mode its completed response is saved durably before closing that owned tab; uncertain
+uncaptured tabs stay open. Local validation can resume from the captured response. The code disconnects its Playwright client;
 it never calls `browser.close()` on your attached browser. Cancellation does not
 retract an already submitted prompt or cancel the provider's generation. No
 screenshots, HAR, traces, cookies or storage state are collected by this adapter.
@@ -176,11 +178,13 @@ Omnibus backup/export does not package browser credentials. On another computer,
 create a new dedicated profile and sign in there rather than copying cookie databases.
 Native Linux/macOS/Windows instructions above are not claims of tested native login.
 
-This implements the website-account transport for the current **bounded semantic
-analysis** workflow (up to six 2,000-character units). It is not yet general-purpose
-browser task automation, whole-book ingestion, reader tracking or external resource
-discovery. Authenticated provider acceptance is still required before calling this
-an operational autonomous intellectual assistant.
+The default [collection assistant](collections.md) now orchestrates the bounded
+transport automatically across entire supported collections, with one scoped
+disclosure approval. Legacy single-analysis mode still uses up to six 2,000-character
+units and per-analysis approval under advanced controls. Safe pre-send collection
+failures back off; uncertain sends never replay automatically. Reader tracking and
+general-purpose browser task automation are not implemented. Authenticated native
+acceptance remains required; see [the Windows test](collection-native-windows.md).
 
 ## Official references checked
 

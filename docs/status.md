@@ -1,3 +1,63 @@
+# V0.4 collection assistant — 2026-10-05
+
+Implemented on `arena/01a107a0-omnibus`, reusing the scanner/parsers, artifacts,
+semantic worker, browser transport, runtime journal, graph and correction APIs.
+
+- Main-page command → actual read-only snapshot/plan → one named-provider scope
+  approval → automatic serial processing of every supported available passage.
+- Full-mode extraction preserves Markdown front matter/headings/tails, full EPUB
+  spine text, and PDF pages beyond the scanner's 100-page excerpt window. Explicit
+  omissions/limits prevent false complete claims. Original files stay unchanged.
+- Migration 003, durable batches/config/scope, safe retry backoff, pause/resume,
+  cached-response recovery, atomic graph checkpoints and no ambiguous replay.
+- Repeat/incremental operation reuse avoids duplicate processing. Concurrent local
+  planning is serialized. Bounded, two-sided quoted canonical identity reuse is
+  provisional; co-discussion is explicitly heuristic, not causal evidence.
+- Executive counts/themes/cross-book connections, readable graph, original-file
+  paths/hashes, passage inspection, unresolved/uncovered evidence and corrections.
+  Old controls remain under advanced details; the old task journal is `/runtime`.
+
+## Executed verification
+
+- Full environment (`.[test,books,browser]`, optional local JSDOM runner):
+  **131 passed, 3 skipped**. Skips: optional Codex SDK contract and two opt-in live
+  Codex tests. One Starlette/httpx deprecation warning, not a test failure.
+- Installed **0.4.0 core-only wheel** plus test dependencies:
+  **122 passed, 12 skipped**. Additional skips: seven Playwright protocol fixture
+  cases and two optional PDF tests. The installed package, not editable source,
+  supplies the application in this run.
+- Python compileall, both application JS syntax checks and `git diff --check` pass.
+- Real UI code exercised through synthetic JSDOM: one command POST, one approval
+  POST, completed progress/graph, safe text rendering, citation links and both
+  provisional/confirmed evidence. This is not visual Chrome acceptance.
+- Collection fixtures cover two Markdown/two EPUB books spanning multiple batches,
+  exact complete passage coverage, front matter and tails, a generated 102-page
+  PDF, semantic reconciliation, incremental/repeat idempotence, concurrent commands,
+  restart before send and after an ambiguous send, durable response recovery,
+  unavailable provider/quota backoff, malformed JSON, quote mismatch, omitted source
+  accounting, unsupported canonical IDs, extraction caps and explicit uncovered text.
+  Model responses in these tests are **synthetic**, not live inference evidence.
+- Native acceptance script's Linux refusal was executed: exit 2, explicitly BLOCKED.
+  This is a platform guard test, **not** the requested live Windows acceptance.
+
+## Still outstanding / not certified
+
+**No native Windows 11 + real signed-in ChatGPT/Claude/DeepSeek test was available.**
+No account credentials were requested or imported. Actual selectors, login behavior,
+model quality and consumer-account throughput remain unverified. The required native
+live acceptance is not marked done. Run [the documented procedure and opt-in real
+acceptance script](collection-native-windows.md) on the actual Windows host.
+
+Other intentional limits: synchronous local preparation is repeatable, not a durable
+per-file planning cursor; reconciliation is bounded rather than exhaustive all-pairs;
+no OCR; no automated reconciliation of uncertain unfinished website conversations;
+no general-purpose assistant actions outside this collection vertical slice.
+See [behavior and resource limits](collections.md) and [audit](collection-audit.md).
+No workflow files were added. Historical milestones below are historical evidence,
+not additional current passes.
+
+---
+
 # V0.3 status — 2026-10-04
 
 Implemented on `arena/01a107a0-omnibus`, extending the existing architecture:

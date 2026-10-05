@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Literal
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, ValidationError
 from .schemas import Payload, Submission, Budget
 from .knowledge_models import Node, Edge
 from .knowledge import user_evidence
@@ -27,13 +27,21 @@ class Quotation(Payload):
     relation: str = Field(default='covers', pattern=r'^(covers|illustrates|features_person)$')
 
 class ConceptFinding(Payload):
+    existing_concept_id: str | None = None
+    reuse_quote: str = Field(default='', max_length=240)
+    reuse_reason: str = Field(default='', max_length=600)
     kind: Literal['idea', 'person'] = 'idea'
     label: str = Field(min_length=2, max_length=100)
     description: str = Field(min_length=10, max_length=600)
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     evidence: list[Quotation] = Field(min_length=1, max_length=6)
 
+class UncoveredSource(Payload):
+    source_id: str
+    reason: str = Field(min_length=10, max_length=500)
+
 class SemanticAnswer(Payload):
+    uncovered_sources: list[UncoveredSource] = Field(default_factory=list, max_length=6)
     concepts: list[ConceptFinding] = Field(max_length=6)
     limitations: str = Field(min_length=10, max_length=1000)
 
@@ -72,13 +80,29 @@ with relation "features_person" and quotes that identify that guest by name.
 Do not infer guests from titles, a host introduction alone, or a passing mention.
 Only unify a person across sources when the identity is supported; ambiguity belongs
 in limitations. Idea findings use kind "idea" and covers/illustrates, not features_person.
+If canonical_context is supplied, reuse existing_concept_id only for the SAME
+meaning, supported by current evidence AND a verbatim reuse_quote copied from
+that existing concept's supplied quotations. Give a substantive reuse_reason and
+confidence >= 0.85. Same labels alone do not justify identity. Otherwise leave it
+null and keep uncertainty explicit. All such identity decisions are provisional.
+In collection_mode account for EVERY supplied source: cite it in a finding, or
+include its source_id and a reason in uncovered_sources. Never silently skip text.
 Acknowledge these scope limitations. Use confidence conservatively.'''
 
 
-def validate_answer(raw, sources):
+def validate_answer(raw, sources, canonical_context=(), collection_mode=False):
     answer = SemanticAnswer.model_validate_json(raw)
     by_id = {s['id']: s for s in sources}
+    known = {c['id']: c for c in canonical_context}
+    reused = set()
     for concept in answer.concepts:
+        if concept.existing_concept_id:
+            previous = known.get(concept.existing_concept_id)
+            if (not previous or previous['kind'] != concept.kind or concept.confidence < .85
+                    or len(concept.reuse_reason.strip()) < 20 or concept.reuse_quote not in previous['quotes']
+                    or concept.existing_concept_id in reused):
+                raise ValueError('Unsupported canonical identity reuse')
+            reused.add(concept.existing_concept_id)
         seen = set()
         for e in concept.evidence:
             if (concept.kind == 'person') != (e.relation == 'features_person'):
@@ -91,6 +115,12 @@ def validate_answer(raw, sources):
             if key in seen:
                 raise ValueError('Duplicate coverage for one concept/source')
             seen.add(key)
+    covered = {e.source_id for c in answer.concepts for e in c.evidence}
+    uncovered = {u.source_id for u in answer.uncovered_sources}
+    if not uncovered <= by_id.keys() or covered & uncovered or len(uncovered) != len(answer.uncovered_sources):
+        raise ValueError('Invalid uncovered source accounting')
+    if collection_mode and covered | uncovered != by_id.keys():
+        raise ValueError('Collection batch did not account for every supplied passage')
     return answer
 
 
@@ -111,10 +141,11 @@ class SemanticWorker:
             raise WorkerFailure('configuration', 'Semantic task has no authorized input snapshot')
         sources = json.loads(self.artifacts.read(spec['input_artifact']))['sources']
         config = LocalModelConfig.model_validate(spec['model_config'])
+        cached = run.get('worker_metadata', {}).get('browser_response_cache')
         if config.backend == 'browser':
             if spec.get('authorize_provider') != config.browser_provider:
                 raise WorkerFailure('configuration', 'Selected provider has not been authorized for this source snapshot')
-            if run.get('worker_metadata', {}).get('browser_delivery'):
+            if run.get('worker_metadata', {}).get('browser_delivery') and not cached:
                 raise WorkerFailure('uncertain', 'A browser send was previously attempted. Inspect the provider tab; this run will not replay the prompt.')
             def before_send(delivery):
                 with self.store.connect() as db:
@@ -126,22 +157,36 @@ class SemanticWorker:
                     record(self.store, run['id'], 'submission_attempted', delivery, db=db)
             client = BrowserChat(config, before_send)
             client.observe = lambda stage, detail: record(self.store, run['id'], stage, detail)
+            if spec.get('collection_id'):
+                def capture_response(text, metadata):
+                    saved = self.artifacts.write(redact(text).encode(), kind='semantic-model-output', mime='application/json', run_id=run['id'], provenance='browser response captured before owned-tab close')
+                    with self.store.connect() as db:
+                        current = self.store.get('runs', run['id'], db)
+                        self.store.update('runs', run['id'], {'worker_metadata': {**current.get('worker_metadata', {}),
+                            'browser_response_cache': {'artifact_id':saved['id'],'metadata':metadata}}}, db)
+                        record(self.store, run['id'], 'response_captured', {'artifact_id':saved['id'],'backend':'browser','metadata':metadata}, db=db)
+                client.capture_response = capture_response
         else:
             client = Ollama(config)
             for stage in ['browser_reachable', 'provider_session', 'submission_attempted']:
                 record(self.store, run['id'], stage, {'backend': config.backend}, 'not_applicable')
-        raw, metadata = await client.generate(
-            [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json.dumps({'sources': sources}, ensure_ascii=False)}],
-            SemanticAnswer.model_json_schema())
+        if cached:
+            raw, metadata = self.artifacts.read(cached['artifact_id']).decode(), cached['metadata']
+        else:
+            raw, metadata = await client.generate(
+                [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json.dumps({'sources': sources, 'canonical_context': spec.get('canonical_context', []), 'collection_mode': bool(spec.get('collection_id'))}, ensure_ascii=False)}],
+                SemanticAnswer.model_json_schema())
         raw = redact(raw)
-        artifact = self.artifacts.write(raw.encode(), kind='semantic-model-output', mime='application/json', run_id=run['id'], provenance=config.backend+':'+str(metadata.get('model', config.model)))
+        saved = self.store.get('runs', run['id']).get('worker_metadata', {}).get('browser_response_cache')
+        artifact = self.store.get('artifacts', saved['artifact_id']) if saved else self.artifacts.write(raw.encode(), kind='semantic-model-output', mime='application/json', run_id=run['id'], provenance=config.backend+':'+str(metadata.get('model', config.model)))
         record(self.store, run['id'], 'response_captured', {'artifact_id': artifact['id'], 'backend': config.backend, 'metadata': metadata})
         try:
-            answer = validate_answer(raw, sources)
-        except ValueError:
-            record(self.store, run['id'], 'semantic_validated', {'artifact_id': artifact['id'], 'reason': 'Quote/schema/source check failed'}, 'failed')
-            self.store.event(run['id'], 'semantic_output_rejected', {'artifact': artifact['id'], 'reason': 'Schema/source/quotation validation failed'})
-            raise WorkerFailure('invalid_output', 'Model output failed schema or exact-quotation validation. It was saved for inspection; no graph assertions installed.') from None
+            answer = validate_answer(raw, sources, spec.get('canonical_context', []), bool(spec.get('collection_id')))
+        except ValueError as exc:
+            reason = 'Structured response schema is invalid' if isinstance(exc, ValidationError) else str(exc)
+            record(self.store, run['id'], 'semantic_validated', {'artifact_id': artifact['id'], 'reason': reason}, 'failed')
+            self.store.event(run['id'], 'semantic_output_rejected', {'artifact': artifact['id'], 'reason': reason})
+            raise WorkerFailure('invalid_output', 'Model output failed validation: '+reason+'. Saved for inspection; no graph assertions installed.') from None
         source_map = {s['id']: s for s in sources}
         concepts, edges = [], []
         with self.store.connect() as db:
@@ -156,7 +201,15 @@ class SemanticWorker:
                                      'node_id': q.source_id, 'locator': (s['locator']+' [bounded input: '+s['scope']+']')[:500], 'sha256': s['sha256']})
                 data = Node(node_type='resource' if finding.kind == 'person' else 'concept', kind=finding.kind, title=finding.label, provenance=evidence,
                             metadata={'semantic_run': run['id'], 'hypothesis': True, 'description': finding.description})
-                c = self.store.add('nodes', data.model_dump(mode='json'), db, parent_id=None)
+                if finding.existing_concept_id:
+                    c = self.store.get('nodes', finding.existing_concept_id, db)
+                    if c['status'] != 'active':
+                        raise WorkerFailure('invalid_output', 'Canonical concept changed during analysis; inspect this batch')
+                    aliases = list(dict.fromkeys(c['aliases']+([finding.label] if finding.label != c['title'] else [])))[:100]
+                    self.store.update('nodes', c['id'], {'aliases': aliases}, db)
+                    self.store.event(c['id'], 'provisional_identity_reused', {'run_id': run['id'], 'reason': finding.reuse_reason, 'prior_quote': finding.reuse_quote}, db)
+                else:
+                    c = self.store.add('nodes', data.model_dump(mode='json'), db, parent_id=None)
                 concepts.append(c['id'])
                 for relation in ['covers', 'illustrates', 'features_person']:
                     members = [{'node_id': q.source_id, 'role': 'source' if relation == 'covers' else 'resource'} for q in finding.evidence if q.relation == relation]
@@ -164,12 +217,27 @@ class SemanticWorker:
                         continue
                     members.append({'node_id': c['id'], 'role': 'person' if finding.kind == 'person' else 'concept'})
                     e = Edge(type=relation, members=members, provenance=evidence, confidence=finding.confidence, status='proposed',
-                             explanation=finding.description+' Scope: selected bounded text only; semantic hypothesis, not independently verified equivalence.')
+                             explanation=finding.description+(' Provisional canonical identity: '+finding.reuse_reason+' Prior quote: '+finding.reuse_quote if finding.existing_concept_id else '')+' Scope: selected bounded text only; semantic hypothesis, not independently verified equivalence.')
                     row = self.store.add('edges', e.model_dump(mode='json', exclude={'members'}), db)
                     for m in e.members:
                         db.execute('INSERT INTO edge_members VALUES (?,?,?)', (row['id'], m.node_id, m.role))
                     edges.append(row['id'])
-            review = {'run_id': run['id'], 'raw_artifact': artifact['id'], 'concept_ids': concepts, 'edge_ids': edges,
+            if spec.get('collection_id'):
+                for source in sources:
+                    indices = [i for i, c in enumerate(answer.concepts) if c.kind == 'idea' and any(e.source_id == source['id'] for e in c.evidence)]
+                    related = list(dict.fromkeys(concepts[i] for i in indices))
+                    if len(related) > 1:
+                        relation = Edge(type='related_to', status='proposed', confidence=.4,
+                            members=[{'node_id': source['id'], 'role': 'context'}]+[{'node_id': id, 'role': 'concept'} for id in related],
+                            provenance=[{'kind':'heuristic','node_id':source['id'],'locator':source['locator'][:500], 'sha256':source['sha256'],
+                                         'description':'These evidenced ideas were identified in the same passage. Co-occurrence alone is not a causal or prerequisite relationship.'}],
+                            explanation='Provisional co-discussion relationship, not equivalence or causation.')
+                        row = self.store.add('edges', relation.model_dump(mode='json', exclude={'members'}), db)
+                        for member in relation.members:
+                            db.execute('INSERT INTO edge_members VALUES (?,?,?)', (row['id'], member.node_id, member.role))
+                        edges.append(row['id'])
+            review = {'run_id': run['id'], 'reused_concept_ids': [c.existing_concept_id for c in answer.concepts if c.existing_concept_id],
+                      'uncovered_sources': [u.model_dump() for u in answer.uncovered_sources], 'raw_artifact': artifact['id'], 'concept_ids': concepts, 'edge_ids': edges,
                       'metadata': metadata, 'limitations': answer.limitations,
                       'validation': 'Schema and exact source quotes checked; semantics remain unverified', 'review': 'pending'}
             self.store.update('runs', run['id'], {'worker_metadata': {**self.store.get('runs', run['id'], db).get('worker_metadata', {}), 'semantic': review}}, db)
@@ -199,7 +267,7 @@ class SemanticService:
     def availability(self):
         c = self.config()
         diagnostic = ('No semantic backend configured. Choose a browser account or optional local model.' if c.backend == 'disabled'
-                      else 'Browser account selected: '+c.browser_provider+'. Text leaves this computer only on explicit per-analysis approval. Website adapters are experimental.' if c.backend == 'browser'
+                      else 'Browser account selected: '+c.browser_provider+'. Text leaves this computer only on explicit collection-scope approval, or per-analysis approval in advanced tools. Website adapters are experimental.' if c.backend == 'browser'
                       else 'Local model configured; use Check readiness. No silent mock fallback.')
         return {'available': False, 'configured': c.backend == 'browser' or (c.backend == 'ollama' and bool(c.model)),
                 'backend': c.backend, 'model': c.model, 'config': c.model_dump(), 'diagnostic': diagnostic}
@@ -245,7 +313,12 @@ class SemanticService:
         if node['status'] != 'active' or resource['status'] != 'active':
             raise ValueError('Source has been superseded; select its current version')
         scope, text = 'selected content unit', None
-        if resource['metadata'].get('discovery'):
+        if passage := node['metadata'].get('collection_passage'):
+            text = self.artifacts.read(passage['artifact_id']).decode('utf-8')
+            if len(text) > 2000 or hashlib.sha256(text.encode()).hexdigest() != node['sha256']:
+                raise ValueError('Collection passage integrity failure')
+            scope = 'complete snapshotted passage; section '+passage['section_locator']+' characters '+str(passage['start'])+':'+str(passage['end'])
+        elif resource['metadata'].get('discovery'):
             from .discovery import verified_snapshot
             snap = verified_snapshot(self.store, resource)
             if not snap:
@@ -281,13 +354,13 @@ class SemanticService:
         else:
             raise ValueError('No accessible source text. Import the actual transcript/text; a URL/title is not enough.')
         text = redact(text[:2000])
-        if len(text.strip()) < 40:
+        if len(text.strip()) < (1 if node['metadata'].get('collection_passage') else 40):
             raise ValueError('Selected unit has insufficient extracted text; OCR/remote transcript retrieval is not available')
         return {'id': node['id'], 'resource_id': resource['id'], 'title': node['title'], 'locator': node['locator'],
                 'text': text, 'sha256': hashlib.sha256(text.encode()).hexdigest(), 'scope': scope}
 
-    def submit(self, request: AnalysisRequest):
-        c = self.config()
+    def submit(self, request: AnalysisRequest, *, scoped_config=None, collection_id=None, canonical_context=()):
+        c = scoped_config or self.config()
         if c.backend == 'browser':
             if request.authorize_provider != c.browser_provider:
                 raise ValueError('Explicit approval to send selected texts to '+c.browser_provider+' is required; local inference consent is not sufficient')
@@ -300,7 +373,7 @@ class SemanticService:
             raise ValueError('Select distinct source units')
         obj = self.runtime.accept(Submission(text='Extract evidence-backed semantic coverage from selected material', source='semantic-analysis', route='task', budget=Budget(seconds=min(c.seconds+10,600), retries=1)))
         artifact = self.artifacts.write(json.dumps({'sources': sources}, ensure_ascii=False).encode(), kind='semantic-input', mime='application/json', run_id=obj['run_id'], provenance='explicitly selected sources')
-        self.store.update('tasks', obj['task_id'], {'semantic': {'input_artifact': artifact['id'], 'model_config': c.model_dump(), 'source_ids': [s['id'] for s in sources], 'authorize_provider': request.authorize_provider},
+        self.store.update('tasks', obj['task_id'], {'semantic': {'input_artifact': artifact['id'], 'model_config': c.model_dump(), 'source_ids': [s['id'] for s in sources], 'authorize_provider': request.authorize_provider, 'collection_id': collection_id, 'canonical_context': list(canonical_context)},
             'constraints': ['Only this selected source snapshot may be submitted to '+c.browser_provider+'. No other external actions authorized.'] if c.backend == 'browser' else ['No external side effects authorized']})
         return obj
 

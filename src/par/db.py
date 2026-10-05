@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from .security import redact_data
 
-TABLES = {"projects", "tasks", "requests", "runs", "artifacts", "memories", "nodes", "edges", "activity", "preferences", "recommendations", "library_roots"}
+TABLES = {"projects", "tasks", "requests", "runs", "artifacts", "memories", "nodes", "edges", "activity", "preferences", "recommendations", "library_roots", "collection_jobs"}
 def now():
     return datetime.now(timezone.utc).isoformat()
 def uid():
@@ -22,9 +22,9 @@ class Store:
         with self.connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            if version > 2:
+            if version > 3:
                 raise ValueError("Database is newer than this runtime")
-            for target, name in [(1, '001_initial.sql'), (2, '002_intellectual_life.sql')]:
+            for target, name in [(1, '001_initial.sql'), (2, '002_intellectual_life.sql'), (3, '003_collections.sql')]:
                 if version < target:
                     sql = (Path(__file__).parent / 'migrations' / name).read_text()
                     db.executescript('BEGIN IMMEDIATE;\n' + sql + '\nCOMMIT;')

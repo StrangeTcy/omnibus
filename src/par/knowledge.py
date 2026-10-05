@@ -106,7 +106,7 @@ class Knowledge:
                 raise ValueError('Merged aliases would exceed 100; simplify aliases first')
             # Preserve old edges; revised memberships receive new edge IDs.
             for edge in self.edges():
-                if edge['status'] == 'confirmed' and any(m['node_id'] == source for m in edge['members']):
+                if edge['status'] in {'confirmed', 'proposed'} and any(m['node_id'] == source for m in edge['members']):
                     members = {(target if m['node_id'] == source else m['node_id'], m['role']) for m in edge['members']}
                     if len({m[0] for m in members}) < 2:
                         self.edge_status(edge['id'], 'rejected')

@@ -57,6 +57,7 @@ class BrowserChat:
     def __init__(self, config, before_send=None):
         self.config, self.before_send = config, before_send
         self.observe = lambda stage, detail: None
+        self.capture_response = None
 
     async def ready(self):
         if not self.config.dedicated_browser_profile:
@@ -119,6 +120,11 @@ class BrowserChat:
                         raise WorkerFailure('authentication', 'Provider page/composer accessible but no recognized signed-in account control. Check login or adapter selectors manually; no source text entered.')
                     self.observe('provider_session', {'provider': self.config.browser_provider,
                         'basis': 'Expected HTTPS page, editable composer and recognized account control visible; account identity/subscription/model availability not verified'})
+                    alerts = page.locator('[role="alert"]:visible')
+                    if await alerts.count():
+                        warning = (await alerts.first.inner_text()).casefold()
+                        if any(t in warning for t in ['usage limit', 'message limit', 'rate limit', 'try again later']):
+                            raise WorkerFailure('rate_limit', 'Provider reports a usage limit before text entry. No prompt was submitted; retry later.')
                     existing = await composer.input_value() if await composer.evaluate('(e) => e.tagName === "TEXTAREA"') else await composer.inner_text()
                     if existing.strip():
                         raise WorkerFailure('website_changed', 'Fresh chat has a draft; refusing to overwrite it')
@@ -157,13 +163,17 @@ class BrowserChat:
                         last = parsed
                         if stable >= 3:
                             # This is observed stable JSON, NOT an official completion event.
-                            return parsed, {'model': self.config.browser_provider+' web UI (model identity unverified)',
+                            metadata = {'model': self.config.browser_provider+' web UI (model identity unverified)',
                                             'provider': self.config.browser_provider, 'transport': 'playwright-cdp',
                                             'browser_version': ready['browser_version'],
                                             'completion_basis': 'JSON stable across four observations; no visible recognized Stop control',
                                             'conversation_url': page.url.split('?')[0].split('#')[0]}
-                    # Intentionally leave tab/browser open for the user's audit. Stopping
-                    # the Playwright client disconnects its driver, not a Browser.close.
+                            if self.capture_response:
+                                self.capture_response(parsed, metadata)  # durable before closing this owned tab
+                                await page.close()
+                            return parsed, metadata
+                    # Uncaptured/uncertain tabs remain for inspection. Disconnecting
+                    # Playwright never closes the attached browser or its other tabs.
         except asyncio.CancelledError:
             raise
         except WorkerFailure:

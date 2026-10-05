@@ -209,7 +209,7 @@ def test_memory_crud_provenance_and_forget(rt):
 
 def test_migration_fk_append_only_and_integrity(rt):
     with rt.store.connect() as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 2
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 3
         assert db.execute('PRAGMA foreign_keys').fetchone()[0] == 1
         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
         with pytest.raises(sqlite3.IntegrityError):

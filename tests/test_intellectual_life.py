@@ -228,8 +228,8 @@ def test_migration_upgrade_down_preserves_runtime(tmp_path):
     edge(graph, 'covers', [(book, 'source'), (idea, 'concept')])
     graph.activity(book['id'], Activity(kind='position', end=50))
     with store.connect() as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 2
-        db.executescript('BEGIN;'+(migrations/'002_intellectual_life.down.sql').read_text()+'COMMIT;')
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 3
+        db.executescript('BEGIN;'+(migrations/'003_collections.down.sql').read_text()+(migrations/'002_intellectual_life.down.sql').read_text()+'COMMIT;')
         assert db.execute('PRAGMA user_version').fetchone()[0] == 1
     assert Store(root).get('projects', p['id'])['goal'] == 'Preserved project'
 

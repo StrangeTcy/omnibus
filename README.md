@@ -5,11 +5,27 @@ projects, memory, artifacts and event history; swap the worker independently.
 Python 3.11–3.13. No Docker, WSL, paid API key or model account is needed for the
 mock-backed core.
 
-**Current milestone:** a working local library, reading-progress dashboard and
-inspectable n-ary idea hypergraph, extended in place according to `omnibus plans.txt`.
-Scanning, progress, graph queries and recommendations from confirmed relationships
-make **zero model calls**. The existing task runtime and optional worker adapters
-remain available, but Codex is not required for Intellectual Life.
+## V0.4 — command-driven collection assistant
+
+Open **http://127.0.0.1:8000/** and enter:
+
+> Read all the books in `D:\Books`. Build an idea graph across the whole collection, merge duplicate concepts where justified, connect related ideas, and preserve evidence showing where each idea came from.
+
+Use the path on the computer running Omnibus. It inventories/extracts locally,
+shows the real plan and disclosure, then automatically processes every available
+supported passage after **one collection-scope approval** for your configured
+signed-in website provider. No unit IDs, six-chunk selection loop or required
+edge-by-edge approval. Completed work survives restart; ambiguous sends do not replay.
+Results include a provisional graph, themes, cross-book evidence, identity reuse,
+omissions, uncertainty and remaining work. Old controls are under **Advanced controls**;
+the former runtime dashboard is `/runtime`.
+
+Read [collection behavior and limits](docs/collections.md), the
+[pre-change audit](docs/collection-audit.md), and the
+[native Windows 11 real-account acceptance procedure](docs/collection-native-windows.md).
+**Live acceptance remains outstanding:** no authenticated provider or native Windows
+run was available in this Linux workspace. Synthetic tests are not that evidence.
+No paid API, required local model, Codex, Docker or WSL is needed for this workflow.
 
 ## V0.3 — useful recommendations with explicit evidence
 
@@ -37,13 +53,13 @@ attaching automation: Google may reject automated browsers even when up to date.
 No credential sharing with Arena, CAPTCHA bypass or silent paid API fallback.
 See [browser account setup, security and current limits](docs/browser-accounts.md).
 
-## Intellectual Life — start here
+## Install and start
 
 Linux/macOS:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[books,test]"
+.venv/bin/python -m pip install -e ".[books,browser,test]"
 .venv/bin/par serve
 ```
 
@@ -51,14 +67,17 @@ Windows PowerShell/cmd (native Python; no WSL):
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[books,test]"
+.venv\Scripts\python.exe -m pip install -e ".[books,browser,test]"
 .venv\Scripts\par.exe serve
 ```
 
-Open **http://127.0.0.1:8000/life**. Under **Settings**, add a Books directory on
-the server host and click **Scan read-only**. Open a discovered resource to record
-reading, a position, a revisit or a correction. The dashboard calculates daily
-newly read ranges and current progress without inventing activity.
+Open **http://127.0.0.1:8000/**. Complete the one-time
+[browser-account setup](docs/browser-accounts.md), enter the collection command,
+and approve its disclosure once. Do not send credentials to Arena.
+
+Manual library scans, reading progress, graph editing and recommendation controls
+remain under **Advanced controls**. These are optional tools, not prerequisites to
+the collection workflow.
 
 Supported: EPUB, UTF-8 text/Markdown/HTML, plus PDFs with the optional `[books]`
 extra. Unsupported/malformed files appear in the scan report. Original files are
@@ -73,8 +92,10 @@ Titles alone never establish semantic equivalence.
 
 **No semantic model or reading-app integration is configured by default.** Manual
 progress, concept entry, relationship correction and supplied URL linking are
-complete workflows. There is no claimed YouTube/transcript connector, automatic
-semantic discovery or inspection of your actual books from this sandbox.
+complete workflows. There is no claimed YouTube/transcript connector or inspection of your actual books
+from this sandbox. Automatic collection interpretation requires your configured
+website account and the collection disclosure approval; core-only operation does
+not silently substitute mock semantic findings.
 
 With the virtual environment activated:
 
